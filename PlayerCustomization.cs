@@ -26,7 +26,10 @@ public class PlayerCustomization : MonoBehaviour
 		{
 			if (gender != value)
 			{
-				PV.RPC("RPC_SetGender", RpcTarget.AllBuffered, value);
+				if (PV.IsSceneView)
+					RPC_SetGender(value);
+				else
+					PV.RPC("RPC_SetGender", RpcTarget.AllBuffered, value);
 			}
 		}
 	}
@@ -85,7 +88,10 @@ public class PlayerCustomization : MonoBehaviour
 
 	public void SetHead(GenderType gender, string name)
 	{
-		PV.RPC("RPC_SetHead", RpcTarget.AllBuffered, gender, name);
+		if (PV.IsSceneView)
+			RPC_SetHead(gender, name);
+		else
+			PV.RPC("RPC_SetHead", RpcTarget.AllBuffered, gender, name);
 	}
 
 	[PunRPC]
@@ -100,7 +106,10 @@ public class PlayerCustomization : MonoBehaviour
 
 	public void SetSkin(GenderType gender, string name)
 	{
-		PV.RPC("RPC_SetSkin", RpcTarget.AllBuffered, gender, name);
+		if (PV.IsSceneView)
+			RPC_SetSkin(gender, name);
+		else
+			PV.RPC("RPC_SetSkin", RpcTarget.AllBuffered, gender, name);
 	}
 
 	public void SetOutfit(string name)
@@ -116,10 +125,13 @@ public class PlayerCustomization : MonoBehaviour
 	// Start is called before the first frame update
 	void Start()
     {
-        if (PV.IsMine)
+        if (PV.IsMine || PV.IsSceneView)
 		{
-			//Gender = (GenderType)UnityEngine.Random.Range(0, Enum.GetValues(typeof(GenderType)).Length);
-			Gender = GenderType.Female;
+			if (PV.IsSceneView)
+				GetComponent<AimController>().Team = UnityEngine.Random.Range(0, 2);
+
+			Gender = (GenderType)UnityEngine.Random.Range(0, Enum.GetValues(typeof(GenderType)).Length);
+			//Gender = GenderType.Female;
 
 			Material skin = Skins[UnityEngine.Random.Range(0.0f, 1.0f) < SkinProbability ? 0 : 1];
 

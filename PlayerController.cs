@@ -43,6 +43,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 	const float JumpDoubleTapTime = 0.3f;
 
 	private bool isLayingOut;
+	public bool IsLayingOut => isLayingOut;
 
 	private float knockDownTimer;
 
@@ -165,7 +166,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 	{
 		Debug.DrawLine(transform.position, target, Color.red);
 
-		if (CanMove)
+		//if (CanMove)
 		{
 			Vector3 direction = target - transform.position;
 			float dist = direction.magnitude;
@@ -233,7 +234,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 
 		Vector3 inputVelocity = new Vector3(0, 0, 0);
 
-		if (PV.IsMine && GetComponent<BotController>() == null && FrisbeeGame.Instance.CanProcessKeyboard)
+		if (PV.IsMine && GetComponent<BotController>() == null && FrisbeeGame.Instance.CanProcessKeyboard && !CameraController.IsFreeCamEnabled)
 		{
 			float h = Input.GetAxis("Horizontal") + Input.GetAxis("Horizontal Movement");
 			float v = Input.GetAxis("Vertical") + Input.GetAxis("Vertical Movement");
@@ -329,9 +330,9 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 	}
 
 	const float GameHeightLimit = 1.1f;
-	const float PushOutSpeed = 10.0f;
+	const float PushOutSpeed = 3.0f;
 	const float PushOutSlideDampening = 0.61803f;
-
+	
 	void FixedUpdate()
 	{
 		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) && PV.IsMine)
@@ -346,16 +347,22 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 			Vector3 nextPos = currPos + Body.velocity * Time.fixedDeltaTime;
 
 			// Check Out-of-Bounds
-			if (FrisbeeGame.Instance.GetTeamStatus(AC.Team) == FrisbeeGame.TeamStatus.Offence)
 			{
-				Rect area = FrisbeeGame.Instance.ActiveArea;
+				BoxCollider gameCollider = FrisbeeGame.Instance.GetTeamStatus(AC.Team) == FrisbeeGame.TeamStatus.Offence ? FrisbeeGame.Instance.ActiveBoundsOffence : FrisbeeGame.Instance.ActiveBoundsDefence;
+				Bounds area = new Bounds(gameCollider.center, gameCollider.size);
 
-				Vector2 pos2d = new Vector2(transform.position.x, transform.position.z);
-				Vector2 nextPos2d = new Vector2(nextPos.x, nextPos.z);
-
-				if (Utils.Distance(area, nextPos2d) > Utils.Distance(area, pos2d))
+				if (Utils.Distance(area, nextPos) > Utils.Distance(area, transform.position))
 				{
-					Body.velocity = Body.velocity + new Vector3(-Body.velocity.x, 0, Body.velocity.z);
+					float maxVelocity = Body.velocity.magnitude;
+
+					Vector3 reflection = 
+						new Vector3(
+							(nextPos.x < area.min.x || nextPos.x > area.max.x) ? -1.0f : 0f,
+							(nextPos.y < area.min.y || nextPos.y > area.max.y) ? -1.0f : 0f,
+							(nextPos.z < area.min.z || nextPos.z > area.max.z) ? -1.0f : 0f
+						);
+					
+					Body.velocity = (Body.velocity + Vector3.Scale(reflection, Body.velocity)).normalized * maxVelocity;
 				}
 			}
 
@@ -369,7 +376,13 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 					Vector3 currPushOut = ac.GetDiscSpacePushOut(currPos);
 					Vector3 nextPushOut = ac.GetDiscSpacePushOut(nextPos);
 
-					if (nextPushOut.magnitude > currPushOut.magnitude)
+
+					if (currPushOut.magnitude > 0.001f)
+					{
+						float currVelocity = Body.velocity.magnitude;
+						Body.velocity = currPushOut.normalized * PushOutSpeed;
+					}
+					else if (nextPushOut.magnitude > 0.001f)
 					{
 						Vector3 slideDir = Vector3.Cross((player.transform.position - transform.position).normalized, Vector3.up);
 						slideDir.y = 0.0f;
@@ -421,7 +434,8 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 
 			if (PhotonNetwork.IsMasterClient)
 			{
-				AC.Team = FrisbeeGame.Instance.SelectTeamForNewPlayer();
+				// VS TODO: Rebalance Teams
+				AC.Team = 0;// FrisbeeGame.Instance.SelectTeamForNewPlayer();
 				FrisbeeGame.Instance.OnPlayerCreated(gameObject);
 			}
 		}

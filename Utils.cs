@@ -4,10 +4,12 @@ using UnityEngine;
 
 public class Utils
 {
-	public static float Distance(Rect rect, Vector2 p)
+	public static float Distance(Bounds bounds, Vector3 p)
 	{
-		var dx = Mathf.Max(rect.min.x - p.x, 0, p.x - rect.max.x);
-		var dy = Mathf.Max(rect.min.y - p.y, 0, p.y - rect.max.y);
-		return Mathf.Sqrt(dx * dx + dy * dy);
+		return (p - bounds.ClosestPoint(p)).magnitude;
+
+		//var dx = Mathf.Max(rect.min.x - p.x, 0, p.x - rect.max.x);
+		//var dy = Mathf.Max(rect.min.y - p.y, 0, p.y - rect.max.y);
+		//return Mathf.Sqrt(dx * dx + dy * dy);
 	}
 }

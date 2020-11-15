@@ -28,7 +28,7 @@ public class AimController : MonoBehaviour
 	}
 
 	public const float StallOutSec = 6.0f;
-	public const float StallOurRadius = 4.0f;
+	public const float StallOutRadius = 4.0f;
 
 	public GameObject StallOutCounter;
 	public GameObject StallOutBar;
@@ -77,7 +77,10 @@ public class AimController : MonoBehaviour
 			if (TeamIndex != value)
 			{
 				TeamIndex = value;
-				PV.RPC("RPC_SetTeam", RpcTarget.AllBuffered, value);
+				if (PV.IsSceneView)
+					RPC_SetTeam(value);
+				else
+					PV.RPC("RPC_SetTeam", RpcTarget.AllBuffered, value);
 			}
 		}
 	}
@@ -276,25 +279,38 @@ public class AimController : MonoBehaviour
 		return targets[Random.Range(0, targets.Count - 1)];
 	}
 
-	bool HasOpponentInRange(float range)
+	public List<GameObject> FindOpponentInRange(float range)
 	{
+		List<GameObject> result = new List<GameObject>();
 		List<GameObject> opponents = GetPlayers((Team + 1) % 2);
 		foreach (GameObject obj in opponents)
 		{
 			if (Vector3.Distance(transform.position, obj.transform.position) < range)
-				return true;
+				result.Add(obj);
 		}
-		return false;
+		return result;
 	}
 
-	Quaternion MaxThrowingArc = Quaternion.Euler(20.0f, 50.0f, 0.0f);
+	public static Quaternion MinThrowingArc = Quaternion.Euler(5.0f, 0.0f, 0.0f);
+	public static Quaternion MaxThrowingArc = Quaternion.Euler(25.0f, 55.0f, 0.0f);
 
-	Vector3 CalculateThrowDirection(float chargeTime)
+	public static Quaternion MinHammerArc = Quaternion.Euler(50.0f, 30.0f, 0.0f);
+	public static Quaternion MaxHammerArc = Quaternion.Euler(50.0f, 55.0f, 0.0f);
+
+	public const int DoubleTeamLimit = 2;
+	public const int TrippleTeamLimit = DoubleTeamLimit + 1;
+
+	Vector3 CalculateThrowDirection(float chargeTime, Quaternion minArc, Quaternion maxArc)
 	{
-		return CalculateThrowDirectionFromRatio(chargeTime / DiscChargeTime);
+		return CalculateThrowDirectionFromRatio(chargeTime / DiscChargeTime, minArc, maxArc);
 	}
 
 	public Vector3 CalculateThrowDirectionFromRatio(float ratio)
+	{
+		return CalculateThrowDirectionFromRatio(ratio, CurrentMinArc, CurrentMaxArc);
+	}
+
+	public Vector3 CalculateThrowDirectionFromRatio(float ratio, Quaternion minArc, Quaternion maxArc)
 	{
 		float maxDiscCurveRatio = Stats.CurrentStats.MaxDiscCurve;
 		ratio = Mathf.Clamp(ratio, -maxDiscCurveRatio, maxDiscCurveRatio);
@@ -304,23 +320,28 @@ public class AimController : MonoBehaviour
 
 		Quaternion rotationToTarget = Quaternion.LookRotation(dir, Vector3.up);
 
-		Quaternion throwDirection = Quaternion.Euler(-Mathf.Abs(ratio) * MaxThrowingArc.eulerAngles.x, ratio * MaxThrowingArc.eulerAngles.y, MaxThrowingArc.eulerAngles.z);
+		float lerp = Mathf.Abs(ratio);
+		Quaternion throwDirection = Quaternion.Euler(-Mathf.Lerp(minArc.eulerAngles.x, maxArc.eulerAngles.x, lerp), Mathf.Sign(ratio) * Mathf.Lerp(minArc.eulerAngles.y, maxArc.eulerAngles.y, lerp), 0.0f);
 
 		return rotationToTarget * throwDirection * Vector3.forward;
 	}
 
-	void CmdThrowDiscToCurrentTarget(float chargeTime)
+	void CmdThrowDiscToCurrentTarget(float chargeTime, Quaternion minArc, Quaternion maxArc)
 	{
-		if (Mathf.Abs(chargeTime) < DiscStraightThrowTime)
-			chargeTime = 0.0f;
-		Vector3 dir = CalculateThrowDirection(chargeTime);
-		CmdThrowDisc(Disc, gameObject, CurrentTarget, dir);
-		DiscCharge = 0.0f;
+		if (CurrentTarget != null)
+		{
+			if (Mathf.Abs(chargeTime) < DiscStraightThrowTime)
+				chargeTime = 0.0f;
+			Vector3 dir = CalculateThrowDirection(chargeTime, minArc, maxArc);
+			CmdThrowDisc(Disc, gameObject, CurrentTarget, dir);
+			DiscCharge = 0.0f;
+		}
 	}
 
 	public float DiscCharge = 0.0f;
 	const float DiscChargeTime = 0.2f;
 	const float DiscStraightThrowTime = DiscChargeTime * 0.5f;
+	
 
 
 	float CalcCurrentDiscCharge()
@@ -330,7 +351,7 @@ public class AimController : MonoBehaviour
 
 	bool IsReleasingDisc()
 	{ 
-		return (Input.GetButtonUp("Disc Charge") && Input.GetAxis("Disc Charge") < Mathf.Epsilon) || Input.GetButtonDown("Disc Release");
+		return (Input.GetButtonUp("Disc Charge") && !Input.GetButton("Disc Charge")) || Input.GetButtonDown("Disc Release");
 	}
 
 	const float ArrowAngle = 15.0f;
@@ -341,7 +362,7 @@ public class AimController : MonoBehaviour
 	{
 		if (AimDecal.activeSelf && CurrentTarget != null)
 		{
-			Vector3 throwDir = CalculateThrowDirection(DiscCharge);
+			Vector3 throwDir = CalculateThrowDirection(DiscCharge, MinThrowingArc, MaxThrowingArc);
 
 			throwDir.y = 0.0f;
 			throwDir.Normalize();
@@ -350,8 +371,27 @@ public class AimController : MonoBehaviour
 		}
 	}
 
-	//const float TARGET_CHANGE_DELAY_SEC = 0.5f;
-	const float TARGET_CHANGE_DELAY_SEC = 0.0f;
+	const float TARGET_CHANGE_DELAY_SEC = 0.3f;
+
+	public bool HasDoubleTeam => (OpponentsInRange.Count >= DoubleTeamLimit);
+	public bool HasTrippleTeam => (OpponentsInRange.Count >= TrippleTeamLimit);
+
+	Quaternion CurrentMaxArc
+	{
+		get
+		{
+			return HasDoubleTeam ? MaxHammerArc : MaxThrowingArc;
+		}
+	}
+
+	Quaternion CurrentMinArc
+	{
+		get
+		{
+			return HasDoubleTeam ? MinHammerArc : MinThrowingArc;
+		}
+	}
+
 
 	// Update is called once per frame
 	void Update()
@@ -369,7 +409,7 @@ public class AimController : MonoBehaviour
 			{
 				GameObject target = SelectClosestTarget(transform.forward);
 
-				//if ((Time.time - CurrentTargetTimestamp) > TARGET_CHANGE_DELAY_SEC || (target == null))
+				if ((Time.time - CurrentTargetTimestamp) > TARGET_CHANGE_DELAY_SEC || (target == null))
 					SetTarget(target);
 			}
 			else
@@ -386,7 +426,8 @@ public class AimController : MonoBehaviour
 
 				if (IsReleasingDisc())
 				{
-					CmdThrowDiscToCurrentTarget(DiscCharge);
+					CmdThrowDiscToCurrentTarget(DiscCharge, CurrentMinArc, CurrentMaxArc);
+					//CmdThrowHammerToCurrentTarget(DiscCharge);
 				}
 				else
 				{
@@ -400,7 +441,7 @@ public class AimController : MonoBehaviour
 
 		if (HasDiscInHands)
 		{
-			if (HasOpponentInRange(StallOurRadius))
+			if (OpponentsInRange.Count > 0)
 			{
 				DiscInHandsTime += Time.deltaTime;
 			}
@@ -473,6 +514,8 @@ public class AimController : MonoBehaviour
 
 		if (PhotonNetwork.IsMasterClient && FrisbeeGame.Instance.CanScore)
 		{
+			bool announceTransition = FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing);
+
 			if (GetComponent<PlayerController>().IsGrounded)
 			{
 				BoxCollider zone = FrisbeeGame.Instance.GetGoalZone(TeamIndex);
@@ -480,6 +523,7 @@ public class AimController : MonoBehaviour
 				{
 					FrisbeeGame.Instance.Score(disc.GetComponent<DiscController>().CurrentThrower, gameObject, TeamIndex);
 					PC.CmdScore();
+					announceTransition = false;
 				}
 			}
 
@@ -488,6 +532,9 @@ public class AimController : MonoBehaviour
 			if (thrower.GetComponent<AimController>().Team != Team)
 			{
 				GetComponent<PlayerStats>().AddDefence();
+
+				if (announceTransition)
+					FrisbeeGame.Instance.CmdSwitchPossession(Team);
 			}
 		}
 
@@ -526,8 +573,8 @@ public class AimController : MonoBehaviour
 
 			Vector3 direction = to.transform.position - from.transform.position;
 			direction.Normalize();
-			
-			controller.CmdThrow(from, to, direction);
+
+			CmdThrowDisc(disc, from, to, direction);
 		}
 	}
 
@@ -536,7 +583,10 @@ public class AimController : MonoBehaviour
 		if (to != null)
 		{
 			DiscController controller = disc.GetComponent<DiscController>();
-			controller.CmdThrow(from, to, direction);
+
+			bool enableTrail = OpponentsInRange.Count >= DoubleTeamLimit;
+
+			controller.CmdThrow(from, to, direction, enableTrail);
 		}
 	}
 
@@ -580,5 +630,17 @@ public class AimController : MonoBehaviour
 		}
 
 		return Vector3.zero;
+	}
+
+	public List<GameObject> OpponentsInRange = new List<GameObject>();
+	public void UpdateOpponentsInRange()
+	{
+		OpponentsInRange = FindOpponentInRange(StallOutRadius);
+	}
+
+	void OnDrawGizmos()
+	{
+		Gizmos.color = Color.red;
+		Gizmos.DrawSphere(this.transform.position, Catcher.radius);
 	}
 }

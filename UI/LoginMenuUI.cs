@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-//#if UNITY_STANDALONE
+#if UNITY_STANDALONE
 using Steamworks;
-//#endif
+#endif
 
 public class LoginMenuUI : MonoBehaviour
 {
@@ -26,14 +26,14 @@ public class LoginMenuUI : MonoBehaviour
 		}
 #endif
 
-//#if UNITY_STANDALONE
+#if UNITY_STANDALONE
 		if (SteamManager.Initialized)
 		{
 			string name = SteamFriends.GetPersonaName();
 			InputName.text = name;
 			Debug.Log(name);
 		}
-//#endif
+#endif
 
 		CurrentRegion = 0;
 	}
@@ -90,9 +90,19 @@ public class LoginMenuUI : MonoBehaviour
 
 	void OnGUI()
 	{
-		//if (InputName.isFocused && InputName.text != string.Empty && Input.GetButtonDown("Submit"))
-		//{
-		//	OnLoginButtonClick();
-		//}
+		if (InputName.isFocused && InputName.text != string.Empty && Input.GetButtonDown("Submit"))
+		{
+			OnLoginButtonClick();
+		}
+	}
+
+	public void OnDiscordLinkClicked()
+	{
+		Application.OpenURL("https://discord.gg/4b8fSEF9aT");
+	}
+
+	public void OnDontateLinkClicked()
+	{
+		Application.OpenURL("https://discspace.itch.io/play/donate");
 	}
 }

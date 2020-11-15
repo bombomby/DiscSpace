@@ -18,6 +18,8 @@ public class DiscController : MonoBehaviour
 
 	Vector3 Velocity = Vector3.zero;
 
+	public GameObject Trail;
+
 	struct ThrowParams
 	{
 		public Vector3 Origin;
@@ -62,7 +64,7 @@ public class DiscController : MonoBehaviour
 				Normal = Vector3.Slerp(Vector3.up, targetNormal, ratio);
 			}
 
-			float linearSpeed = Vector3.Dot(Direction, targetDirection);
+			float linearSpeed = Mathf.Clamp(Vector3.Dot(Direction, targetDirection), 0.001f, 0.999f);
 
 			//ThrowSpeed = linearSpeed * DiscVelocity;
 			Speed = Mathf.Lerp(1.0f, linearSpeed, CurveSpeedSmootStep) * DiscVelocity;
@@ -89,7 +91,7 @@ public class DiscController : MonoBehaviour
 			targetDirection.Normalize();
 
 			Vector3 curveDirection = Vector3.Cross(targetDirection, Normal);
-			if (Vector3.Dot(curveDirection, Direction) < 0.0f)
+			if (Vector3.Dot(curveDirection, Direction) < -0.001f)
 				curveDirection = -curveDirection;
 
 			return Vector3.Lerp(Origin, target, ratio) + curveDirection * distance * height;
@@ -101,9 +103,9 @@ public class DiscController : MonoBehaviour
 	float CurrentFlyingTime;
 
 
-	public float DiscHeight = 0.75f;
+	const float DiscHeight = 0.75f;
 
-	enum DiscState
+	public enum DiscState
 	{
 		IDLE,
 		FLYING,
@@ -111,6 +113,7 @@ public class DiscController : MonoBehaviour
 	}
 
 	DiscState State = DiscState.IDLE;
+	public DiscState CurrentState { get { return State; } }
 
 
 	// Start is called before the first frame update
@@ -120,9 +123,9 @@ public class DiscController : MonoBehaviour
 		RB = GetComponent<Rigidbody>();
 	}
 
-	public void CmdThrow(GameObject player, GameObject target, Vector3 direction)
+	public void CmdThrow(GameObject player, GameObject target, Vector3 direction, bool enableTrail)
 	{
-		PV.RPC("RPC_Throw", RpcTarget.All, player.GetComponent<PhotonView>().ViewID, target.GetComponent<PhotonView>().ViewID, direction);
+		PV.RPC("RPC_Throw", RpcTarget.All, player.GetComponent<PhotonView>().ViewID, target.GetComponent<PhotonView>().ViewID, direction, enableTrail);
 	}
 
 	Vector3 GetAdjustedTargetPosition(Vector3 position)
@@ -131,7 +134,7 @@ public class DiscController : MonoBehaviour
 	}
 
 	[PunRPC]
-	private void RPC_Throw(int playerViewID, int targetViewID, Vector3 direction)
+	private void RPC_Throw(int playerViewID, int targetViewID, Vector3 direction, bool enableTrail)
 	{
 		PhotonView playerView = PhotonView.Find(playerViewID);
 		PhotonView targetView = PhotonView.Find(targetViewID);
@@ -145,7 +148,7 @@ public class DiscController : MonoBehaviour
 		CurrentPlayer = playerView.gameObject;
 		CurrentTarget = targetView.gameObject;
 
-		Throw.Calc(transform.position, GetAdjustedTargetPosition(CurrentTarget.transform.position), direction);
+		Throw.Calc(GetAdjustedTargetPosition(CurrentPlayer.transform.position), GetAdjustedTargetPosition(CurrentTarget.transform.position), direction);
 
 		CurrentFlyingTime = 0.0f;
 
@@ -159,6 +162,9 @@ public class DiscController : MonoBehaviour
 		//transform.position = new Vector3(transform.position.x, DiscHeight, transform.position.z);
 
 		CurrentThrower.GetComponent<AimController>().OnThrow(CurrentTarget);
+
+		if (enableTrail)
+			Trail.SetActive(true);
 
 		//CurrentThrower.GetComponent<PlayerController>().SetAnimationTrigger("Throw");
 	}
@@ -198,6 +204,7 @@ public class DiscController : MonoBehaviour
 
 		State = DiscState.IDLE;
 		TeamLock = teamLock;
+		Trail.SetActive(false);
 
 		CurrentThrower = playerView.gameObject;
 		CurrentPlayer = playerView.gameObject;
@@ -254,6 +261,7 @@ public class DiscController : MonoBehaviour
 		TeamLock = -1;
 		CurrentPlayer = player;
 		CurrentTarget = null;
+		Trail.SetActive(false);
 
 		Transform hand = FindHand(player.GetComponent<PlayerController>().Player.transform);
 		if (hand != null)
@@ -266,7 +274,6 @@ public class DiscController : MonoBehaviour
 
 			player.GetComponent<AimController>().OnCatch(gameObject);
 		}
-
 	}
 
 	const float DiscSmoothRatio = 0.3f;
@@ -288,7 +295,11 @@ public class DiscController : MonoBehaviour
 			float smoothRatio = distance < DiscSmoothDistance ? Mathf.Lerp(DiscSmoothRatio, 1.0f, 1.0f - distance / DiscSmoothDistance) : DiscSmoothRatio;
 
 			transform.position = Vector3.Lerp(transform.position, discPos, smoothRatio);
-			transform.rotation = Quaternion.LookRotation(Vector3.forward, Throw.Normal);
+
+			Vector3 dir = new Vector3(Throw.Direction.x, 0.0f, Throw.Direction.z).normalized;
+			Vector3 forw = Vector3.Cross(Vector3.Cross(dir, Throw.Normal), Throw.Normal);
+
+			transform.rotation = Quaternion.LookRotation(forw, Throw.Normal);
 		}
 
 		float minY = GetComponent<MeshCollider>().bounds.min.y;
@@ -338,15 +349,19 @@ public class DiscController : MonoBehaviour
 		return State == DiscState.FLYING && TeamPossession != team;
 	}
 
+	public const float DoubleTeamCatchRadiusMultiplier = 0.5f;
 	public const float MinCatchRadius = 0.75f;
-	public const float MaxCatchRadius = 1.75f;
+	public const float MaxCatchRadius = 1.65f;
 
 	public float CalculateCatchRadius(Vector3 pos)
 	{
-		if (State == DiscState.FLYING)
+		if (State == DiscState.FLYING && CurrentPlayer != null && CurrentTarget != null)
 		{
 			float distA = (pos - CurrentPlayer.transform.position).magnitude;
 			float distB = (pos - CurrentTarget.transform.position).magnitude;
+
+			if (distA < AimController.StallOutRadius)
+				return MinCatchRadius;
 
 			// Calculating catch radius as a ratio between distance to the thrower and sum of distances to start/finish
 			// So players putting force deep on the side gets a slight distadvantage to the straight force

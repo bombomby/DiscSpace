@@ -63,7 +63,20 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 	public const string LinkPropertyName = "Link";
 	public const string PasswordPropertyName = "Password";
 
-	static Regex ZoomPattern = new Regex(@"https:\/\/[a-zA-Z0-9]+.zoom.us\/j\/[0-9]+\?pwd=[a-zA-Z0-9]+");
+	static Regex[] WhitelistedPatterns = new Regex[]{
+		new Regex(@"https:\/\/[a-zA-Z0-9]+.zoom.us\/j\/[0-9]+\?pwd=[a-zA-Z0-9]+"),
+		new Regex(@"https:\/\/discord.gg\/[a-zA-Z0-9]+")
+	};
+
+	bool IsLinkWhitelisted(string link)
+	{
+		foreach (Regex pattern in WhitelistedPatterns)
+		{
+			if (pattern.IsMatch(link))
+				return true;
+		}
+		return false;
+	}
 
 	void CreateRoom(string name, byte maxPlayers, string link = null, string password = null)
 	{
@@ -72,7 +85,7 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 		ExitGames.Client.Photon.Hashtable properties = new ExitGames.Client.Photon.Hashtable();
 		List<string> lobbyProperties = new List<string>();
 
-		if (!string.IsNullOrEmpty(link) && ZoomPattern.IsMatch(link))
+		if (!string.IsNullOrEmpty(link) && IsLinkWhitelisted(link))
 		{
 			properties[LinkPropertyName] = link;
 			lobbyProperties.Add(LinkPropertyName);
@@ -110,7 +123,7 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 		PhotonNetwork.JoinRoom(name);
 	}
 
-	private void OnAddRoom(RoomInfo roomInfo)
+	private void OnUpdateRoom(RoomInfo roomInfo)
 	{
 		RoomListing roomItem = RoomList.Find(x => x.RoomName == roomInfo.Name);
 
@@ -123,19 +136,23 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 		}
 
 		roomItem.UpdateInfo(roomInfo);
+
+		if (roomItem.IsEmpty)
+		{
+			RoomList.Remove(roomItem);
+			Destroy(roomItem.gameObject);
+		}
 	}
 
 	public override void OnRoomListUpdate(List<RoomInfo> roomList)
 	{
-		for (int i = 0; i < RoomList.Count;)
-		{
-			if (roomList.Find(x => x.Name == RoomList[i].RoomName) == null)
-				Destroy(RoomList[i].gameObject);
-			else
-				++i;
-		}
+		roomList.ForEach(x => OnUpdateRoom(x));
+	}
 
-		roomList.ForEach(x => OnAddRoom(x));
+	public void Clean()
+	{
+		RoomList.ForEach(roomItem => Destroy(roomItem.gameObject));
+		RoomList.Clear();
 	}
 
 	void OnGUI()

@@ -20,6 +20,14 @@ public class RoomListing : MonoBehaviour
 	int MaxPlayers { get; set; }
 	string Password { get; set; }
 
+	public bool IsEmpty
+	{
+		get
+		{
+			return PlayerCount == 0;
+		}
+	}
+
 	public void UpdateInfo(RoomInfo info)
 	{
 		roomName = info.Name;

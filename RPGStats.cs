@@ -110,7 +110,7 @@ public class RPGStats : MonoBehaviour
 			MoveSpeedBurstMultiplier = 1.4f;
 			LayoutSpeedMultiplier = 1.4f;
 
-			DiscSpace = 1.4f;
+			DiscSpace = 1.6f;
 			MaxDiscCurve = 0.86f;
 		}
 
@@ -134,7 +134,8 @@ public class RPGStats : MonoBehaviour
 		public const float StaminaBurstDrainSpeed = 20.0f;
 		public const float HealthBurstDrainSpeed = 10.0f;
 		public const float StaminaJumpDrain = 15.0f;
-		public const float StaminaLayoutDrain = 0.0f;
+		public const float StaminaLayoutDrain = 5.0f;
+		public const float DiscCatchRadiusLayoutScaler = 1.15f;
 
 		public bool CanBurst { get { return Stamina > 0.0f ; } }
 		public bool CanJump { get { return Stamina > StaminaJumpDrain; } }
@@ -282,6 +283,13 @@ public class RPGStats : MonoBehaviour
 		CurrentStats = stats;
 	}
 
+	[PunRPC]
+	void RPC_SetLowStamina(bool isLow)
+	{
+		isLowStamina = isLow;
+		LowStaminaVFX.SetActive(isLow);
+	}
+
 	void UpdateStats()
 	{
 		PV.RPC("RPC_UpdateStats", RpcTarget.All, CurrentStats);
@@ -292,11 +300,24 @@ public class RPGStats : MonoBehaviour
 		PV = GetComponent<PhotonView>();
 	}
 
-	public const float HealthOutOfBoundsDrainSpeed = 30.0f;
+	public const float HealthOutOfBoundsDrainSpeed = 50.0f;
 
 	private void Start()
 	{
 		ApplyStats();
+	}
+
+	bool isLowStamina = false;
+	bool IsLowStamina
+	{
+		set
+		{
+			if (isLowStamina != value)
+			{
+				isLowStamina = value;
+				PV.RPC("RPC_SetLowStamina", RpcTarget.All, value);
+			}
+		}
 	}
 
 	void Update()
@@ -321,12 +342,9 @@ public class RPGStats : MonoBehaviour
 			FrisbeeGame.Instance.RequestPlayerDeath();
 		}
 
-		LowStaminaVFX.SetActive(CurrentStats.Stamina < Stats.StaminaJumpDrain);
-
-		//for this example, the bar display is linked to the current time,
-		//however you would set this value based on your desired display
-		//eg, the loading progress, the player's health, or whatever.
-		//CurrentStats.Health = CurrentStats.Health - Time.time;
-		//        barDisplay = MyControlScript.staticHealth;
+		if (PV.IsMine)
+		{
+			IsLowStamina = CurrentStats.Stamina < Stats.StaminaJumpDrain;
+		}
 	}
 }

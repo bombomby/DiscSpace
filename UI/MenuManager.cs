@@ -121,7 +121,7 @@ public class MenuManager : MonoBehaviour
 				UIWindow.GetWindow(UIWindowID.PauseMenu).Show();
 			}
 
-			if (Input.GetButtonUp("Chat Menu"))
+			if (Input.GetButtonDown("Chat Menu"))
 			{
 				UIWindow.GetWindow(UIWindowID.TextChat).Show();
 			}

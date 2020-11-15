@@ -23,7 +23,8 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	public AnnouncementUI Announcement;
 
-	public Rect ActiveArea;
+	public BoxCollider ActiveBoundsOffence;
+	public BoxCollider ActiveBoundsDefence;
 
 	private GameObject mainPlayer = null;
 	public GameObject MainPlayer
@@ -134,6 +135,17 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		SpawnPlayer(pos, rot);
 
 		UIWindow.GetWindow(UIWindowID.Tutorial).GetComponent<TutorialMenuUI>().TryShow();
+	}
+
+	[PunRPC]
+	void RPC_SwitchPossession(int offensiveTeam)
+	{
+		SetAnnouncement(null, 0, MainPlayer.GetComponent<AimController>().Team == offensiveTeam ? AnnouncementUI.SoundFX.Offence : AnnouncementUI.SoundFX.Defence);
+	}
+
+	public void CmdSwitchPossession(int offensiveTeam)
+	{
+		PV.RPC("RPC_SwitchPossession", RpcTarget.All, offensiveTeam);
 	}
 
 	public void Score(GameObject from, GameObject to, int teamIndex)
@@ -360,6 +372,8 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		{
 			CurrentStateElapsed += Time.deltaTime;
 		}
+
+		UpdatePlayerProximity();
 	}
 
 	void ResetTeams()
@@ -456,19 +470,27 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	{
 		if (PhotonNetwork.IsMasterClient)
 		{
+			int maxTeamSize = 0;
+
+			for (int teamIndex = 0; teamIndex < NumPlayingTeams; ++teamIndex)
+			{
+				int currTeamMaxSize = Math.Max(Teams[teamIndex].MaxTeamSize, Teams[teamIndex].Players.Count);
+				maxTeamSize = Math.Max(currTeamMaxSize, maxTeamSize);
+			}
+
 			for (int teamIndex = 0; teamIndex < NumPlayingTeams; ++teamIndex)
 			{
 				Team team = Teams[teamIndex];
 
 				// Add Bots to fill MaxTeamSize
-				while (team.PlayerCount < team.MaxTeamSize)
+				while (team.PlayerCount < maxTeamSize)
 				{
 					Vector3 pos = FindAvailableSpawnPoint();
 					team.Bots.Add(CreateBot("Bot", teamIndex, pos, Quaternion.identity));
 				}
 
 				// Remove Bots if we exceed the limit
-				while ((team.PlayerCount > team.MaxTeamSize) && (team.Bots.Count > 0))
+				while ((team.PlayerCount > maxTeamSize) && (team.Bots.Count > 0))
 				{
 					PhotonNetwork.Destroy(team.Bots[team.Bots.Count - 1]);
 					team.Bots.RemoveAt(team.Bots.Count - 1);
@@ -611,7 +633,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	public override void OnPlayerLeftRoom(Player otherPlayer)
 	{
 		base.OnPlayerLeftRoom(otherPlayer);
-		if (!otherPlayer.IsLocal)
+		if (!otherPlayer.IsLocal && PhotonNetwork.InRoom)
 		{
 			SetAnnouncement(String.Format("{0} has disconnected", otherPlayer.NickName), 3);
 		}
@@ -666,10 +688,25 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 			foreach (DiscController disc in discs)
 			{
-				radius = Mathf.Min(radius, disc.CalculateCatchRadius(ac.transform.position));
+				float curRadius = disc.CalculateCatchRadius(ac.transform.position);
+				radius = Mathf.Min(radius, curRadius);
+			}
+
+			if (ac.gameObject.GetComponent<PlayerController>().IsLayingOut)
+			{
+				radius *= RPGStats.Stats.DiscCatchRadiusLayoutScaler;
 			}
 
 			ac.CatchRadius = radius;
+		}
+	}
+
+	void UpdatePlayerProximity()
+	{
+		List<AimController> aimControllers = new List<AimController>();
+		foreach (GameObject obj in GameObject.FindGameObjectsWithTag("Player"))
+		{
+			obj.GetComponent<AimController>().UpdateOpponentsInRange();
 		}
 	}
 }

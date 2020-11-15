@@ -79,4 +79,13 @@ public class Interactive : MonoBehaviour
 			Action.Invoke();
 		}
     }
+
+	private void OnDestroy()
+	{
+		if (IsTriggered)
+		{
+			InteractionMenu.Instance.RemoveInteraction(this);
+			IsTriggered = false;
+		}
+	}
 }

@@ -24,11 +24,11 @@ public class CreditsMenuUI : MonoBehaviour
 
 	public void OnEmailButtonClicked()
 	{
-		Application.OpenURL("mailto:slyusarev@gmail.com");
+		Application.OpenURL("mailto:discspacegame@gmail.com");
 	}
 
 	public void OnFacebookButtonClicked()
 	{
-		Application.OpenURL("https://www.facebook.com/vslyusarev");
+		Application.OpenURL("https://www.facebook.com/groups/1105909683199769");
 	}
 }

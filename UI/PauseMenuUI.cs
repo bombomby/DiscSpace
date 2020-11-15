@@ -50,6 +50,8 @@ public class PauseMenuUI : MonoBehaviour
 	{
 		GetComponent<UIWindow>().Hide();
 		NetworkLobby.Instance.Disconnect();
+		RoomMenu.Instance.Clean();
+		NetworkLobby.Instance.Reconnect();
 		UIWindow.GetWindow(UIWindowID.SelectServer).Show();
 	}
 

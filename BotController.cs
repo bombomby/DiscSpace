@@ -45,9 +45,9 @@ public class BotController : MonoBehaviour
 				break;
 		}
 
-		Rect area = FrisbeeGame.Instance.ActiveArea;
+		BoxCollider area = FrisbeeGame.Instance.ActiveBoundsOffence;
 
-		return new Vector3(Random.Range(area.x, area.xMax), 0.0f, Random.Range(area.y, area.yMax));
+		return new Vector3(Random.Range(area.bounds.min.x, area.bounds.max.x), 0.0f, Random.Range(area.bounds.min.z, area.bounds.max.z));
 	}
 
 	GameObject FindDiscOnGround()
@@ -122,9 +122,16 @@ public class BotController : MonoBehaviour
 		return false;
 	}
 
-    void Update()
+	public bool DisableMovement;
+
+	void Update()
     {
-        if (PV.IsMine)
+#if UNITY_EDITOR
+		if (DisableMovement)
+			return;
+#endif
+
+		if (PV.IsMine)
 		{
 			if (AC.Disc != null)
 			{

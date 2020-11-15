@@ -17,15 +17,23 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 		Instance = this;
 	}
 
-	private string Version = "0.9";
+	public const string NetworkVersion = "0.9.3";
+	public const string GameVersion = "0.9.5";
+	
 
 	// Start is called before the first frame update
 	void Start()
     {
 	}
 
+	private string CurrentRegion;
+	private string CurrentUserName;
+
 	public void Login(string username, string region = null)
 	{
+		CurrentUserName = username;
+		CurrentRegion = region;
+
 		StatusLabel.enabled = true;
 		StatusLabel.text = "Connecting to the server ...";
 
@@ -40,13 +48,20 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 			PhotonNetwork.ConnectToRegion(region);
 		}
 
-		PhotonNetwork.GameVersion = Version;
+		PhotonNetwork.GameVersion = NetworkVersion;
 		PhotonNetwork.NickName = username;
 	}
 
 	public void Disconnect()
 	{
 		PhotonNetwork.LeaveRoom(false);
+		PhotonNetwork.Disconnect();
+	}
+
+	public void Reconnect()
+	{
+		Disconnect();
+		Login(CurrentUserName, CurrentRegion);
 	}
 
 	public override void OnConnectedToMaster()
@@ -85,13 +100,18 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 
 	public override void OnJoinedRoom()
 	{
+		if (PhotonNetwork.InLobby)
+		{
+			PhotonNetwork.LeaveLobby();
+		}
+
 		string pin = null;
 		if (PhotonNetwork.CurrentRoom.CustomProperties.ContainsKey(RoomMenu.PasswordPropertyName))
 		{
 			pin = PhotonNetwork.CurrentRoom.CustomProperties[RoomMenu.PasswordPropertyName] as string;
 		}
 			
-		StatusLabel.text = string.Format("Server: [{0}] {1} {2}(v{3})", PhotonNetwork.NetworkingClient.CloudRegion, PhotonNetwork.CurrentRoom.Name, !string.IsNullOrEmpty(pin) ? string.Format(": Pin {0} ", pin) : string.Empty, PhotonNetwork.GameVersion);
+		StatusLabel.text = string.Format("Server: [{0}] {1} {2}", PhotonNetwork.NetworkingClient.CloudRegion, PhotonNetwork.CurrentRoom.Name, !string.IsNullOrEmpty(pin) ? string.Format(": Pin {0} ", pin) : string.Empty);
 
 		UIWindow.GetWindow(UIWindowID.SelectServer).Hide();
 
@@ -117,5 +137,13 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 		StatusLabel.text = string.Format("Disconnected: {0}", cause.ToString());
 		UIWindow.GetWindow(UIWindowID.Login).Show();
 		base.OnDisconnected(cause);
+	}
+
+	public override void OnMasterClientSwitched(Player newMasterClient)
+	{
+		FrisbeeGame.Instance.SetAnnouncement("Ooops! Game Host has disconnected\nReturning to the lobby", 5);
+		StatusLabel.text = string.Format("Disconnected: Game Host has left the game");
+		Disconnect();
+		Reconnect();
 	}
 }

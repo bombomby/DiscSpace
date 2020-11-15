@@ -30,7 +30,7 @@ public class ChatUI : MonoBehaviour
 	{
 		if (!string.IsNullOrEmpty(MessageText.text))
 		{
-			PV.RPC("SendMessage", RpcTarget.AllBuffered, PhotonNetwork.NickName, MessageText.text);
+			PV.RPC("SendMessage", RpcTarget.All, PhotonNetwork.NickName, MessageText.text);
 			MessageText.text = string.Empty;
 		}
 	}
@@ -78,16 +78,12 @@ public class ChatUI : MonoBehaviour
 		MessageScroll.normalizedPosition = new Vector2(0, 0);
 	}
 
-	void OnGUI()
+	void Update()
 	{
-		if (MessageText.isFocused && MessageText.text != string.Empty && Input.GetButtonDown("Submit"))
+		if (MessageText.text != string.Empty && Input.GetButtonDown("Submit"))
 		{
 			SendMessage();
-		}
-
-		if (Window.IsOpen && Input.GetButtonUp("Chat Menu"))
-		{
-			Close();
+			FocusInput();
 		}
 	}
 
@@ -97,10 +93,15 @@ public class ChatUI : MonoBehaviour
 		Window.Show();
 	}
 
-	public void OnActivateTransition()
+	public void FocusInput()
 	{
 		MessageText.Select();
 		MessageText.ActivateInputField();
+	}
+
+	public void OnActivateTransition()
+	{
+		FocusInput();
 	}
 
 	public void Close()
