@@ -614,19 +614,35 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		return result;
 	}
 
+	HashSet<string> SignatureMismachNames = new HashSet<string>();
+
 	public override void OnPlayerEnteredRoom(Player newPlayer)
 	{
+		string newPlayerName = Utils.StripSignature(newPlayer.NickName);
+
+		// Verify integrity
+		if (PhotonNetwork.IsMasterClient)
+		{
+			if (!NetworkLobby.Instance.IsValidPlayer(newPlayer))
+			{
+				SignatureMismachNames.Add(newPlayerName);
+				SetAnnouncement(String.Format("{0} has been kicked out by anti-cheat system", newPlayerName), 3);
+				PhotonNetwork.CloseConnection(newPlayer);
+				return;
+			}
+		}
+
 		base.OnPlayerEnteredRoom(newPlayer);
 		if (!newPlayer.IsLocal)
 		{
-			SetAnnouncement(String.Format("{0} has connected", newPlayer.NickName), 3);
+			SetAnnouncement(String.Format("{0} has connected", newPlayerName), 3);
 		}
 	}
 
 	void SpawnPlayer(Vector3 pos, Quaternion rot)
 	{
 		CurrentPlayer = PhotonNetwork.Instantiate(PlayerPrefab, pos, rot);
-		CurrentPlayer.GetComponent<PlayerTag>().Name = PhotonNetwork.NickName;
+		CurrentPlayer.GetComponent<PlayerTag>().Name = NetworkLobby.CurrentPlayerName;
 		CurrentState = GameState.Lobby;
 	}
 
@@ -635,7 +651,11 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		base.OnPlayerLeftRoom(otherPlayer);
 		if (!otherPlayer.IsLocal && PhotonNetwork.InRoom)
 		{
-			SetAnnouncement(String.Format("{0} has disconnected", otherPlayer.NickName), 3);
+			string otherPlayerName = Utils.StripSignature(otherPlayer.NickName);
+			if (!SignatureMismachNames.Contains(otherPlayerName))
+			{
+				SetAnnouncement(String.Format("{0} has disconnected", otherPlayerName), 3);
+			}
 		}
 	}
 

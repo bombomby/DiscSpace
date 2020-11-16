@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Crosstales.BWF;
 
 public class PlayerTag : MonoBehaviour
 {
@@ -32,7 +33,7 @@ public class PlayerTag : MonoBehaviour
 	[PunRPC]
 	private void RPC_SetName(string name)
 	{
-		PlayerName = name;
+		PlayerName = Utils.ReplaceBadWords(name);
 		SetNameToUI(PlayerName);
 	}
 
@@ -44,7 +45,7 @@ public class PlayerTag : MonoBehaviour
 		}
 		set
 		{
-			PlayerName = value;
+			PlayerName = Utils.ReplaceBadWords(value);
 			SetNameToUI(PlayerName);
 
 			if (PV.IsMine)

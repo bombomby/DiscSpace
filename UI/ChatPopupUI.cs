@@ -26,7 +26,6 @@ public class ChatPopupUI : MonoBehaviour
 		{
 			Window.Show();
 		}
-
 	}
 
 	void Update()

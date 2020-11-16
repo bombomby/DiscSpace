@@ -7,6 +7,6 @@ public class GameVersion : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-		GetComponent<Text>().text = string.Format("v{0}", NetworkLobby.GameVersion);
+		GetComponent<Text>().text = string.Format("v{0}[{1}]", NetworkLobby.GameVersion, NetworkLobby.NetworkVersion);
 	}
 }

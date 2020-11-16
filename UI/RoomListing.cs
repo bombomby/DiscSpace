@@ -18,7 +18,8 @@ public class RoomListing : MonoBehaviour
 
 	int PlayerCount { get; set; }
 	int MaxPlayers { get; set; }
-	string Password { get; set; }
+	int KeyCode { get; set; } = -1;
+	bool HasKeyCode { get { return KeyCode != -1; } }
 
 	public bool IsEmpty
 	{
@@ -36,17 +37,19 @@ public class RoomListing : MonoBehaviour
 		if (info.CustomProperties != null && info.CustomProperties.ContainsKey(RoomMenu.LinkPropertyName))
 			hasChat = true;
 
-		if (info.CustomProperties != null && info.CustomProperties.ContainsKey(RoomMenu.PasswordPropertyName))
-			Password = info.CustomProperties[RoomMenu.PasswordPropertyName] as string;
+		if (info.CustomProperties != null && info.CustomProperties.ContainsKey(RoomMenu.KeyCodePropertyName))
+			KeyCode = (int)info.CustomProperties[RoomMenu.KeyCodePropertyName];
+		else
+			KeyCode = -1;
 
 		PlayerCount = info.PlayerCount;
 		MaxPlayers = info.MaxPlayers;
 
-		transform.Find("Server Name Text").GetComponent<Text>().text = info.Name;
+		transform.Find("Server Name Text").GetComponent<Text>().text = Utils.ReplaceBadWords(info.Name);
 		transform.Find("Server Count Text").GetComponent<Text>().text = string.Format("{0}/{1}", info.PlayerCount, info.MaxPlayers);
 		Transform iconGroup = transform.Find("Icon Group");
 		iconGroup.Find("Icon Chat").gameObject.SetActive(hasChat);
-		iconGroup.Find("Icon Lock").gameObject.SetActive(!string.IsNullOrEmpty(Password));
+		iconGroup.Find("Icon Lock").gameObject.SetActive(HasKeyCode);
 	}
 
 	private Button joinButton;
@@ -60,14 +63,15 @@ public class RoomListing : MonoBehaviour
 		{
 			if (PlayerCount < MaxPlayers)
 			{
-				if (!string.IsNullOrEmpty(Password))
+				if (HasKeyCode)
 				{
 					PinCodeUI pinCode = UIWindow.GetWindow(UIWindowID.PinPopup).GetComponent<PinCodeUI>();
-					pinCode.Show(RoomName, Password);
+					pinCode.Show(RoomName, KeyCode);
 				}
 				else
 				{
 					RoomMenu.Instance.OnJoinRoom(RoomName);
+					NetworkLobby.Instance.ExpectedPin = null;
 				}
 			}
 		});

@@ -21,6 +21,9 @@ public class SettingsMenuUI : MonoBehaviour
 	public Slider EffectsVolumeSlider;
 	public Text EffectsVolumeText;
 
+	public Toggle TextChatToggle;
+	public Toggle ShowServerPinToggle;
+
 	public AudioMixer Mixer;
 
 	public float CameraSpeed
@@ -34,6 +37,30 @@ public class SettingsMenuUI : MonoBehaviour
 		{
 			CameraSpeedSlider.value = value;
 			OnCameraSpeedChanged(value);
+		}
+	}
+
+	public bool EnableTextChat
+	{
+		get
+		{
+			return TextChatToggle.isOn;
+		}
+		set
+		{
+			OnTextChatChanged(value);
+		}
+	}
+
+	public bool ShowServerPin
+	{
+		get
+		{
+			return ShowServerPinToggle.isOn;
+		}
+		set
+		{
+			OnShowServerPinChanged(value);
 		}
 	}
 
@@ -96,6 +123,28 @@ public class SettingsMenuUI : MonoBehaviour
 		}
 	}
 
+	public void OnTextChatChanged(bool isEnabled)
+	{
+		if (SaveSettings)
+		{
+			PlayerPrefs.SetInt(TextChatVar, isEnabled ? 1 : 0);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public void OnShowServerPinChanged(bool isEnabled)
+	{
+		if (SaveSettings)
+		{
+			PlayerPrefs.SetInt(ShowServerPinVar, isEnabled ? 1 : 0);
+			PlayerPrefs.Save();
+			ShowServerPinChanged?.Invoke(isEnabled);
+		}
+	}
+
+	public delegate void ShowServerPinChangedEvent(bool isEnabled);
+	public event ShowServerPinChangedEvent ShowServerPinChanged;
+
 	public void OnQualitySettingsChanged(float value)
 	{
 		int maxQuality = QualitySettings.names.Length - 1;
@@ -121,6 +170,8 @@ public class SettingsMenuUI : MonoBehaviour
 	const string MusicVolumeVar = "MusicVolume";
 	const string EffectsVolumeVar = "EffectsVolume";
 	const string GraphicsQuality = "GraphicsQuality";
+	const string TextChatVar = "TextChat";
+	const string ShowServerPinVar = "ShowServerPin";
 
 	// Start is called before the first frame update
 	void Start()
@@ -137,6 +188,9 @@ public class SettingsMenuUI : MonoBehaviour
 		OnQualitySettingsChanged(quality);
 
 		Application.targetFrameRate = 60;
+
+		ShowServerPin = PlayerPrefs.GetInt(ShowServerPinVar, 1) == 1;
+		EnableTextChat = PlayerPrefs.GetInt(TextChatVar, 1) == 1;
 
 		SaveSettings = true;
 	}

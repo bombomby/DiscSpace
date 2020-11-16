@@ -30,7 +30,7 @@ public class ChatUI : MonoBehaviour
 	{
 		if (!string.IsNullOrEmpty(MessageText.text))
 		{
-			PV.RPC("SendMessage", RpcTarget.All, PhotonNetwork.NickName, MessageText.text);
+			PV.RPC("RPC_SendMessage", RpcTarget.All, NetworkLobby.CurrentPlayerName, MessageText.text);
 			MessageText.text = string.Empty;
 		}
 	}
@@ -56,16 +56,19 @@ public class ChatUI : MonoBehaviour
 	}
 
 	[PunRPC]
-	void SendMessage(string name, string message)
+	void RPC_SendMessage(string name, string message)
 	{
-		string combinedMessage = CombineMessage(name, message);
+		string finalName = Utils.ReplaceBadWords(name);
+		string finalMessage = Utils.ReplaceBadWords(message);
+
+		string combinedMessage = CombineMessage(finalName, finalMessage);
 
 		GameObject item = Instantiate(ItemPrefab);
 		item.transform.SetParent(MessageList.transform, false);
 		item.GetComponent<TMP_Text>().text = combinedMessage;
 		StartCoroutine(ScrollToBottom());
 
-		if (!Window.IsOpen)
+		if (!Window.IsOpen && SettingsMenuUI.Instance.EnableTextChat)
 		{
 			Popup.Highlight(combinedMessage, 5.0f);
 		}

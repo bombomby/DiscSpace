@@ -9,14 +9,19 @@ public class Team : MonoBehaviour
 {
 	public int Index;
 
-
 	public List<string> AvailableOutfits;
 
 	string teamOutfit;
 	public string TeamOutfit
 	{
 		get { return teamOutfit; }
-		set { teamOutfit = value; PV.RPC("RPC_SetTeamOutfit", RpcTarget.AllBuffered, value); }
+		set { teamOutfit = value; PV.RPC("RPC_RequestSetTeamOutfit", RpcTarget.MasterClient, value); }
+	}
+
+	[PunRPC]
+	private void RPC_RequestSetTeamOutfit(string value)
+	{
+		PV.RPC("RPC_SetTeamOutfit", RpcTarget.AllBuffered, value);
 	}
 
 	[PunRPC]
@@ -37,15 +42,21 @@ public class Team : MonoBehaviour
 	public string TeamName
 	{
 		get { return teamName; }
-		set { teamName = value; PV.RPC("RPC_SetTeamName", RpcTarget.AllBuffered, value); }
+		set { teamName = value; PV.RPC("RPC_RequestSetTeamName", RpcTarget.MasterClient, value); }
+	}
+
+	[PunRPC]
+	private void RPC_RequestSetTeamName(string value)
+	{
+		PV.RPC("RPC_SetTeamName", RpcTarget.AllBuffered, value);
 	}
 
 	[PunRPC]
 	private void RPC_SetTeamName(string value)
 	{
-		teamName = value;
+		teamName = Utils.ReplaceBadWords(value);
 		foreach (GameObject nameLabel in ScoreboardNameLabel)
-			nameLabel.GetComponent<Text>().text = value;
+			nameLabel.GetComponent<Text>().text = teamName;
 	}
 
 	private DateTime scoreTimestamp = new DateTime();

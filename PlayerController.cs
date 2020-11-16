@@ -75,6 +75,9 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 		{
 			Camera.main.GetComponent<CameraController>().Target = gameObject;
 			FrisbeeGame.Instance.MainPlayer = gameObject;
+
+			// Remove all the pin-code traces
+			PhotonNetwork.NickName = NetworkLobby.CurrentPlayerName;
 		}
 
 		InitPlayer(Player);

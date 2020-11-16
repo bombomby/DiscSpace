@@ -17,13 +17,19 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 		Instance = this;
 	}
 
-	public const string NetworkVersion = "0.9.3";
-	public const string GameVersion = "0.9.5";
+	public const string NetworkVersion = "12";
+	public const string GameVersion = "0.9.6";
 	
 
 	// Start is called before the first frame update
 	void Start()
     {
+		SettingsMenuUI.Instance.ShowServerPinChanged += Instance_ShowServerPinChanged;
+	}
+
+	private void Instance_ShowServerPinChanged(bool isEnabled)
+	{
+		UpdateRoomStatus();
 	}
 
 	private string CurrentRegion;
@@ -98,6 +104,11 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 		CreateRoom();
 	}
 
+	public static string CurrentPlayerName
+	{
+		get { return Utils.StripSignature(PhotonNetwork.NickName); }
+	}
+
 	public override void OnJoinedRoom()
 	{
 		if (PhotonNetwork.InLobby)
@@ -105,13 +116,7 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 			PhotonNetwork.LeaveLobby();
 		}
 
-		string pin = null;
-		if (PhotonNetwork.CurrentRoom.CustomProperties.ContainsKey(RoomMenu.PasswordPropertyName))
-		{
-			pin = PhotonNetwork.CurrentRoom.CustomProperties[RoomMenu.PasswordPropertyName] as string;
-		}
-			
-		StatusLabel.text = string.Format("Server: [{0}] {1} {2}", PhotonNetwork.NetworkingClient.CloudRegion, PhotonNetwork.CurrentRoom.Name, !string.IsNullOrEmpty(pin) ? string.Format(": Pin {0} ", pin) : string.Empty);
+		UpdateRoomStatus();
 
 		UIWindow.GetWindow(UIWindowID.SelectServer).Hide();
 
@@ -123,6 +128,36 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 		{
 			if (PhotonNetwork.CurrentRoom.CustomProperties.ContainsKey(RoomMenu.LinkPropertyName))
 				UIWindow.GetWindow(UIWindowID.JoinChat).Show();
+		}
+	}
+
+	string expectedPin = null;
+	public string ExpectedPin
+	{
+		get { return expectedPin; }
+		set
+		{
+			expectedPin = value;
+		}
+	}
+
+	public bool IsValidPlayer(Player player)
+	{
+		if (!string.IsNullOrEmpty(ExpectedPin))
+		{
+			string signature = Utils.ExtractSignature(player.NickName);
+			string expectedSignature = Utils.GenerateSignature(player, PhotonNetwork.CurrentRoom.Name, ExpectedPin);
+			return signature == expectedSignature;
+		}
+		return true;
+	}
+
+	public void UpdateRoomStatus()
+	{
+		if (PhotonNetwork.InRoom)
+		{
+			string pinText = !string.IsNullOrEmpty(ExpectedPin) && SettingsMenuUI.Instance.ShowServerPin ? string.Format(": Pin {0} ", ExpectedPin) : string.Empty;
+			StatusLabel.text = string.Format("Server: [{0}] {1} {2}", PhotonNetwork.NetworkingClient.CloudRegion, Utils.ReplaceBadWords(PhotonNetwork.CurrentRoom.Name), pinText);
 		}
 	}
 

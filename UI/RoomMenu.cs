@@ -61,7 +61,9 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 	}
 
 	public const string LinkPropertyName = "Link";
-	public const string PasswordPropertyName = "Password";
+	public const string KeyCodePropertyName = "KeyCode";
+
+	public const string EmergencyHash = "";
 
 	static Regex[] WhitelistedPatterns = new Regex[]{
 		new Regex(@"https:\/\/[a-zA-Z0-9]+.zoom.us\/j\/[0-9]+\?pwd=[a-zA-Z0-9]+"),
@@ -93,8 +95,14 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 
 		if (!string.IsNullOrEmpty(password))
 		{
-			properties[PasswordPropertyName] = password;
-			lobbyProperties.Add(PasswordPropertyName);
+			NetworkLobby.Instance.ExpectedPin = password;
+			int keyCode = Utils.GenerateKeyCode(password);
+			properties[KeyCodePropertyName] = keyCode;
+			lobbyProperties.Add(KeyCodePropertyName);
+		}
+		else
+		{
+			NetworkLobby.Instance.ExpectedPin = null;
 		}
 
 		if (properties.Count > 0)
