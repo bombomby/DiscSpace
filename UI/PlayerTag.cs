@@ -9,19 +9,22 @@ public class PlayerTag : MonoBehaviour
 	public string PlayerName = "Player";
 
 	public GameObject TagUI;
+	public TextMesh TagTextMesh;
+	
 
 	private PhotonView PV;
+	private AimController AC;
 
 	void SetNameToUI(string value)
 	{
-		TextMesh mesh = TagUI.GetComponent<TextMesh>();
-		if (mesh != null)
-			mesh.text = value;
+		if (TagTextMesh != null)
+			TagTextMesh.text = value;
 	}
 
 	void Awake()
 	{
 		PV = GetComponent<PhotonView>();
+		AC = GetComponent<AimController>();
 	}
 
 	// Start is called before the first frame update
@@ -53,5 +56,10 @@ public class PlayerTag : MonoBehaviour
 			else
 				Debug.LogError("Can't set name for the remote object!");
 		}
+	}
+
+	private void Update()
+	{
+		//TagTextMesh.color = FrisbeeGame.IsInState(FrisbeeGame.GameState.Game) ? AC.TeamColor : Color.white;
 	}
 }

@@ -148,6 +148,13 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		PV.RPC("RPC_SwitchPossession", RpcTarget.All, offensiveTeam);
 	}
 
+	void ForceUpdateGameState(Player player)
+	{
+		PV.RPC("RPC_GameStateChanged", player, CurrentState);
+		foreach (Team team in Teams)
+			team.ForceUpdate(player);
+	}
+
 	public void Score(GameObject from, GameObject to, int teamIndex)
 	{
 		Teams[teamIndex].Score = Teams[teamIndex].Score + 1;
@@ -630,6 +637,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 				PhotonNetwork.CloseConnection(newPlayer);
 				return;
 			}
+			ForceUpdateGameState(newPlayer);
 		}
 
 		base.OnPlayerEnteredRoom(newPlayer);

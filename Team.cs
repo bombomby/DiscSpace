@@ -1,4 +1,5 @@
 ﻿using Photon.Pun;
+using Photon.Realtime;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -21,7 +22,7 @@ public class Team : MonoBehaviour
 	[PunRPC]
 	private void RPC_RequestSetTeamOutfit(string value)
 	{
-		PV.RPC("RPC_SetTeamOutfit", RpcTarget.AllBuffered, value);
+		PV.RPC("RPC_SetTeamOutfit", RpcTarget.All, value);
 	}
 
 	[PunRPC]
@@ -48,7 +49,7 @@ public class Team : MonoBehaviour
 	[PunRPC]
 	private void RPC_RequestSetTeamName(string value)
 	{
-		PV.RPC("RPC_SetTeamName", RpcTarget.AllBuffered, value);
+		PV.RPC("RPC_SetTeamName", RpcTarget.All, value);
 	}
 
 	[PunRPC]
@@ -108,6 +109,13 @@ public class Team : MonoBehaviour
 		{
 			TeamOutfit = AvailableOutfits[UnityEngine.Random.Range(0, AvailableOutfits.Count)];
 		}
+	}
+
+	public void ForceUpdate(Player player)
+	{
+		PV.RPC("RPC_SetTeamOutfit", player, TeamOutfit);
+		PV.RPC("RPC_SetTeamName", player, TeamName);
+		PV.RPC("RPC_SetScore", player, Score);
 	}
 
 	public void Reset()

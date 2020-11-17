@@ -85,6 +85,20 @@ public class AimController : MonoBehaviour
 		}
 	}
 
+	public Color TeamColor
+	{
+		get
+		{
+			if (Team == 0)
+				return Color.red;
+
+			if (Team == 1)
+				return Color.blue;
+
+			return Color.white;
+		}
+	}
+
 	[PunRPC]
 	void RPC_SetTeam(int index)
 	{

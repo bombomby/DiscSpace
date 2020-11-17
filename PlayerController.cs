@@ -152,7 +152,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 			if (!Stats.CurrentStats.CanJump)
 				return false;
 
-			return FrisbeeGame.Instance.CanJump && ((FrisbeeGame.Instance.CurrentState != FrisbeeGame.GameState.Game_Playing) || !GetComponent<AimController>().HasDiscInHands);
+			return FrisbeeGame.Instance.CanJump && ((FrisbeeGame.Instance.CurrentState != FrisbeeGame.GameState.Game_Playing) || !GetComponent<AimController>().HasDiscInHands) && !IsKnockedDown;
 		}
 	}
 
@@ -160,7 +160,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 	{
 		get
 		{
-			return Stats.CurrentStats.CanLayout && isJumping && (Time.time - lastJumpStart) < JumpDoubleTapTime;
+			return Stats.CurrentStats.CanLayout && isJumping && (Time.time - lastJumpStart) < JumpDoubleTapTime && !IsKnockedDown;
 		}
 	}
 
@@ -322,7 +322,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 			}
 		}
 
-		if (!CanMove && !CanJump && IsGrounded)
+		if (!CanMove && !CanJump && IsGrounded && !IsKnockedDown)
 		{
 			Body.constraints = RigidbodyConstraints.FreezeAll;
 		}
