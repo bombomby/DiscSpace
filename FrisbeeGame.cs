@@ -42,6 +42,8 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	public Team[] Teams;
 
 	int MaxScore { get; set; } = 11;
+	bool AutoRebalanceTeams { get; set; } = true;
+	bool AutoAddBots { get; set; } = true;
 
 	public static FrisbeeGame Instance;
 
@@ -133,8 +135,6 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		Vector3 pos = FindAvailableSpawnPoint();
 		Quaternion rot = Quaternion.LookRotation(-Vector3.forward, Vector3.up);
 		SpawnPlayer(pos, rot);
-
-		UIWindow.GetWindow(UIWindowID.Tutorial).GetComponent<TutorialMenuUI>().TryShow();
 	}
 
 	[PunRPC]
@@ -153,6 +153,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		PV.RPC("RPC_GameStateChanged", player, CurrentState);
 		foreach (Team team in Teams)
 			team.ForceUpdate(player);
+
+		GameObject[] discs = GameObject.FindGameObjectsWithTag("Disc");
+		for (int i = 0; i < discs.Length; ++i)
+		{
+			discs[i].GetComponent<DiscController>().ForceUpdate(player);
+		}
 	}
 
 	public void Score(GameObject from, GameObject to, int teamIndex)
@@ -326,17 +332,17 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		UIWindow.GetWindow(UIWindowID.StartMatch).Show();
 	}
 
-	public void RequestNewGame(int teamSize, int pointCap)
+	public void RequestNewGame(int teamSize, int pointCap, bool autoAddBots, bool autoRebalanceTeams)
 	{
-		PV.RPC("RPC_MasterStartNewGame", RpcTarget.MasterClient, teamSize, pointCap);
+		PV.RPC("RPC_MasterStartNewGame", RpcTarget.MasterClient, teamSize, pointCap, autoAddBots, autoRebalanceTeams);
 	}
 
 	[PunRPC]
-	private void RPC_MasterStartNewGame(int teamSize, int pointCap)
+	private void RPC_MasterStartNewGame(int teamSize, int pointCap, bool autoAddBots, bool autoRebalanceTeams)
 	{
 		if (CurrentState == GameState.Lobby)
 		{
-			CmdStartGame(teamSize, pointCap);
+			CmdStartGame(teamSize, pointCap, autoAddBots, autoRebalanceTeams);
 			CmdStartPoint();
 		}
 	}
@@ -363,7 +369,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 #if UNITY_EDITOR
 			if (Input.GetKeyDown(KeyCode.Alpha1))
 			{
-				CmdStartGame(3, 2);
+				CmdStartGame(3, 2, true, true);
 				CmdStartPoint();
 			}
 
@@ -392,7 +398,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	GameObject CreateBot(String name, int teamIndex, Vector3 position, Quaternion rotation)
 	{
 		GameObject bot = PhotonNetwork.Instantiate(BotPrefab, position, rotation);
-		bot.GetComponent<AimController>().TeamIndex = teamIndex;
+		bot.GetComponent<AimController>().Team = teamIndex;
 		bot.GetComponent<PlayerTag>().PlayerName = name;
 		return bot;
 	}
@@ -402,12 +408,14 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		return PhotonNetwork.Instantiate(DiscPrefab, position, Quaternion.identity);
 	}
 
-	public void CmdStartGame(int teamSize, int pointCap)
+	public void CmdStartGame(int teamSize, int pointCap, bool autoAddBots, bool autoRebalanceTeams)
 	{
 		foreach (Team team in Teams)
 			team.MaxTeamSize = teamSize;
 
 		MaxScore = pointCap;
+		AutoAddBots = autoAddBots;
+		AutoRebalanceTeams = autoRebalanceTeams;
 
 		ResetTeams();
 		UpdateTeams();
@@ -451,22 +459,28 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	private void EqualizeTeams()
 	{
-		List<GameObject> swapTeam = new List<GameObject>();
-		for (int i = 0; i < NumPlayingTeams; ++i)
+		if (AutoRebalanceTeams)
 		{
-			Team team = Teams[i];
-			for (int playerIndex = team.MaxTeamSize; playerIndex < team.Players.Count; ++playerIndex)
-				swapTeam.Add(team.Players[playerIndex]);
-		}
+			List<GameObject> swapTeam = new List<GameObject>();
 
-		foreach (GameObject player in swapTeam)
-		{
-			AimController ac = player.GetComponent<AimController>();
+			int avgPlayers = ((Teams[0].Players.Count + Teams[1].Players.Count) + 1) / 2;
 
-			Teams[ac.Team].Players.Remove(player);
-			Teams[(ac.Team + 1) % 2].Players.Add(player);
+			for (int i = 0; i < NumPlayingTeams; ++i)
+			{
+				Team team = Teams[i];
+				for (int playerIndex = avgPlayers; playerIndex < team.Players.Count; ++playerIndex)
+					swapTeam.Add(team.Players[playerIndex]);
+			}
 
-			ac.Team = (ac.Team + 1) % 2;
+			foreach (GameObject player in swapTeam)
+			{
+				AimController ac = player.GetComponent<AimController>();
+
+				Teams[ac.Team].Players.Remove(player);
+				Teams[(ac.Team + 1) % 2].Players.Add(player);
+
+				ac.Team = (ac.Team + 1) % 2;
+			}
 		}
 	}
 
@@ -475,7 +489,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	private void UpdateBots()
 	{
-		if (PhotonNetwork.IsMasterClient)
+		if (PhotonNetwork.IsMasterClient && AutoAddBots)
 		{
 			int maxTeamSize = 0;
 
@@ -510,7 +524,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	{
 		GameObject[] discs = GameObject.FindGameObjectsWithTag("Disc");
 		for (int i = 0; i < discs.Length; ++i)
-			PhotonNetwork.Destroy(discs[i]);
+		{
+			if (discs[i].GetComponent<PhotonView>().IsMine)
+			{
+				PhotonNetwork.Destroy(discs[i]);
+			}
+		}
 	}
 
 	void ResetDisc(bool players)
@@ -574,10 +593,10 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		CmdAnnouncement("Get Ready!", StartingPointDelaySec);
 	}
 
-	private void CmdGameOver()
+	public void CmdGameOver()
 	{
 		List<GameObject> bots = GetBots();
-		bots.ForEach(bot => PhotonNetwork.Destroy(bot));
+		bots.ForEach(bot => { if (bot.GetComponent<PhotonView>().IsMine) PhotonNetwork.Destroy(bot); });
 		RemoveAllDiscs();
 		CurrentState = GameState.Lobby;
 	}
@@ -688,9 +707,10 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	public void OnPlayerDestroyed(GameObject obj)
 	{
-		if (PhotonNetwork.IsMasterClient && IsInState(GameState.Game) && !obj.GetComponent<PlayerController>().IsBot && !obj.GetComponent<PlayerController>().PV.IsMine)
+		if (PhotonNetwork.IsMasterClient && IsInState(GameState.Game) && !obj.GetComponent<PlayerController>().IsBot && obj.GetComponent<PlayerController>().IsRemote)
 		{
 			UpdateTeams();
+			EqualizeTeams();
 			UpdateBots();
 			ResetDisc(true);
 		}

@@ -187,7 +187,8 @@ public class SettingsMenuUI : MonoBehaviour
 		GraphicsQualitySlider.maxValue = maxQuality;
 		OnQualitySettingsChanged(quality);
 
-		Application.targetFrameRate = 60;
+		QualitySettings.vSyncCount = 0;
+		Application.targetFrameRate = 300;
 
 		ShowServerPin = PlayerPrefs.GetInt(ShowServerPinVar, 1) == 1;
 		EnableTextChat = PlayerPrefs.GetInt(TextChatVar, 1) == 1;

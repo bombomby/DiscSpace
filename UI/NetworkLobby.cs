@@ -17,8 +17,8 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 		Instance = this;
 	}
 
-	public const string NetworkVersion = "12";
-	public const string GameVersion = "0.9.7";
+	public const string NetworkVersion = "13";
+	public const string GameVersion = "0.9.8";
 	
 
 	// Start is called before the first frame update
@@ -66,6 +66,11 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 
 	public void Reconnect()
 	{
+		if (PhotonNetwork.IsMasterClient)
+		{
+			FrisbeeGame.Instance.CmdGameOver();
+		}
+			
 		Disconnect();
 		Login(CurrentUserName, CurrentRegion);
 	}
@@ -76,6 +81,8 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 		PhotonNetwork.JoinLobby();
 	}
 
+	bool ShowedTutorial = false;
+
 	public override void OnJoinedLobby()
 	{
 		//PhotonNetwork.JoinRandomRoom();
@@ -84,6 +91,12 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 
 		UIWindow.GetWindow(UIWindowID.Login).Hide();
 		UIWindow.GetWindow(UIWindowID.SelectServer).Show();
+
+		if (!ShowedTutorial)
+		{
+			UIWindow.GetWindow(UIWindowID.Tutorial).GetComponent<TutorialMenuUI>().TryShow();
+			ShowedTutorial = true;
+		}
 	}
 
 	private void CreateRoom()

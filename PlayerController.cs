@@ -1,10 +1,11 @@
 ﻿using Photon.Pun;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 
-public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
+public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPunObservable
 {
 	public PhotonView PV;
 	public AimController AC;
@@ -14,19 +15,22 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 
 	public GameObject GoalVFX;
 
-	//public class NetworkTransform
-	//{
-	//	public Vector3 Position;
-	//	public Quaternion Rotation;
-	//	public Vector3 Velocity;
-	//}
-	//public NetworkTransform NetTransform;
+	[Serializable]
+	public class NetworkTransform
+	{
+		public Vector3 Position;
+		public Quaternion Rotation;
+		public Vector3 Velocity;
+	}
+	public NetworkTransform NetTransform;
 
-	//public class NetworkSettings
-	//{
-	//	public float LerpRatio = 0.3f;
-	//}
-	//public NetworkSettings NetSettings;
+	[Serializable]
+	public class NetworkSettings
+	{
+		public float LerpRatio = 0.2f;
+		public float TeleportRadius = 2.0f;
+	}
+	public NetworkSettings NetSettings;
 
 
 	public float RotationSpeed = 90.0f;
@@ -53,6 +57,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 	public float LayoutStandUpTime;
 
 	public bool IsBot = false;
+	public bool IsRemote = false;
 
 	public Vector3 Jump;
 	public Vector3 Layout;
@@ -64,6 +69,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 		AC = GetComponent<AimController>();
 		Body = GetComponent<Rigidbody>();
 		IsBot = GetComponent<BotController>() != null;
+
 		Stats = GetComponent<RPGStats>();
 		Audio = GetComponent<PlayerAudio>();
 		GameStats = GetComponent<PlayerStats>();
@@ -71,6 +77,8 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 
 	void Start()
     {
+		IsRemote = !PV.IsMine;
+
 		if (PV.IsMine && !IsBot)
 		{
 			Camera.main.GetComponent<CameraController>().Target = gameObject;
@@ -180,15 +188,26 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 		}
 	}
 
-	//void UpdateNetwork()
-	//{
-	//	if (!PV.IsMine && NetTransform != null)
-	//	{
-	//		transform.position = Vector3.Lerp(transform.position, NetTransform.Position, NetSettings.LerpRatio);
-	//		transform.rotation = Quaternion.Lerp(transform.rotation, NetTransform.Rotation, NetSettings.LerpRatio);
-	//		Body.velocity = NetTransform.Velocity;
-	//	}
-	//}
+	void UpdateNetwork()
+	{
+		if (!PV.IsMine && NetTransform != null)
+		{
+
+			if (Vector3.Distance(transform.position, NetTransform.Position) < NetSettings.TeleportRadius)
+			{
+				float smoothRatio =  NetSettings.LerpRatio;
+				transform.position = Vector3.Lerp(transform.position, NetTransform.Position, smoothRatio);
+				transform.rotation = Quaternion.Lerp(transform.rotation, NetTransform.Rotation, smoothRatio);
+				Body.velocity = Vector3.Lerp(Body.velocity, NetTransform.Velocity, smoothRatio);
+			}
+			else
+			{
+				transform.position = NetTransform.Position;
+				transform.rotation = NetTransform.Rotation;
+				Body.velocity = NetTransform.Velocity;
+			}
+		}
+	}
 
 	public const float ObserverSpeedMultiplier = 2.0f;
 
@@ -233,7 +252,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 
 	void Update()
     {
-		//UpdateNetwork();
+		UpdateNetwork();
 
 		Vector3 inputVelocity = new Vector3(0, 0, 0);
 
@@ -438,7 +457,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 			if (PhotonNetwork.IsMasterClient)
 			{
 				// VS TODO: Rebalance Teams
-				AC.Team = 0;// FrisbeeGame.Instance.SelectTeamForNewPlayer();
+				AC.Team = FrisbeeGame.Instance.SelectTeamForNewPlayer();
 				FrisbeeGame.Instance.OnPlayerCreated(gameObject);
 			}
 		}
@@ -457,22 +476,22 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback
 	}
 
 
-	//public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-	//{
-	//	if (stream.IsWriting)
-	//	{
-	//		stream.SendNext(transform.position);
-	//		stream.SendNext(transform.rotation);
-	//		stream.SendNext(Body.velocity);
-	//	}
-	//	else
-	//	{
-	//		if (NetTransform == null)
-	//			NetTransform = new NetworkTransform();
+	public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+	{
+		if (stream.IsWriting)
+		{
+			stream.SendNext(transform.position);
+			stream.SendNext(transform.rotation);
+			stream.SendNext(Body.velocity);
+		}
+		else
+		{
+			if (NetTransform == null)
+				NetTransform = new NetworkTransform();
 
-	//		NetTransform.Position = (Vector3)stream.ReceiveNext();
-	//		NetTransform.Rotation = (Quaternion)stream.ReceiveNext();
-	//		NetTransform.Velocity = (Vector3)stream.ReceiveNext();
-	//	}
-	//}
+			NetTransform.Position = (Vector3)stream.ReceiveNext();
+			NetTransform.Rotation = (Quaternion)stream.ReceiveNext();
+			NetTransform.Velocity = (Vector3)stream.ReceiveNext();
+		}
+	}
 }

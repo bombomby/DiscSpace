@@ -79,4 +79,9 @@ public class InteractionMenu : MonoBehaviour
 	{
 		ActiveInteractions.Remove(interactive);
 	}
+
+	public void Clear()
+	{
+		ActiveInteractions.Clear();
+	}
 }

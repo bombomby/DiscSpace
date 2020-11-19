@@ -1,4 +1,5 @@
 ﻿using Photon.Pun;
+using Photon.Realtime;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -248,6 +249,8 @@ public class DiscController : MonoBehaviour
 	[PunRPC]
 	public void RPC_Catch(int playerViewID)
 	{
+		Debug.Log(string.Format("Disc::RPC_Catch - {0}", transform.position.ToString()));
+
 		PhotonView playerView = PhotonView.Find(playerViewID);
 		if (playerView == null)
 		{
@@ -381,6 +384,29 @@ public class DiscController : MonoBehaviour
 				return -1;
 
 			return CurrentPlayer.GetComponent<AimController>().Team;
+		}
+	}
+
+	void OnDestroy()
+	{
+		Debug.Log(string.Format("Disc::OnDestroy - {0}", transform.position.ToString()));
+
+		if (CurrentState == DiscState.IN_HANDS)
+		{
+			if (CurrentPlayer != null)
+			{
+				CurrentPlayer.GetComponent<AimController>().OnThrow(null); 
+			}
+		}
+	}
+
+	public void ForceUpdate(Player player)
+	{
+		Debug.Log(string.Format("Disc::ForceUpdate - {0}", transform.position.ToString()));
+
+		if (State == DiscState.IN_HANDS)
+		{
+			PV.RPC("RPC_Catch", player, CurrentPlayer.GetComponent<PhotonView>().ViewID);
 		}
 	}
 }

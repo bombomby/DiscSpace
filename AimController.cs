@@ -18,7 +18,7 @@ public class AimController : MonoBehaviour
 	public GameObject CurrentTarget;
 	public float CurrentTargetTimestamp;
 
-	public int TeamIndex = 0;
+	private int TeamIndex = 0;
 
 	public bool IsBot;
 
@@ -58,11 +58,7 @@ public class AimController : MonoBehaviour
 
 	void Start()
 	{
-		if (PV.IsMine)
-		{
-			PV.RPC("RPC_SetTeam", RpcTarget.AllBuffered, TeamIndex);
-		}
-
+		InitTeam(TeamIndex);
 		StallOutBar.GetComponent<ResourceBar>().MaxValue = StallOutSec;
 	}
 
@@ -99,8 +95,7 @@ public class AimController : MonoBehaviour
 		}
 	}
 
-	[PunRPC]
-	void RPC_SetTeam(int index)
+	void InitTeam(int index)
 	{
 		TeamIndex = index;
 
@@ -110,6 +105,12 @@ public class AimController : MonoBehaviour
 		GetComponent<PlayerCustomization>().SetOutfit(team.TeamOutfit);
 
 		FrisbeeGame.Instance.OnTeamChanged(gameObject, index);
+	}
+
+	[PunRPC]
+	void RPC_SetTeam(int index)
+	{
+		InitTeam(index);
 	}
 
 	void SetGhost(bool isGhost)
@@ -543,7 +544,7 @@ public class AimController : MonoBehaviour
 
 			GameObject thrower = disc.GetComponent<DiscController>().CurrentThrower;
 
-			if (thrower.GetComponent<AimController>().Team != Team)
+			if (thrower != null && thrower.GetComponent<AimController>().Team != Team)
 			{
 				GetComponent<PlayerStats>().AddDefence();
 

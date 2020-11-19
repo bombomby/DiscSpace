@@ -9,6 +9,9 @@ public class StartGameMenuUI : MonoBehaviour
 	public Text TeamSizeLabel;
 	public Text PointCapLabel;
 
+	public Toggle AutoAddBots;
+	public Toggle AutoRebalanceTeams;
+
 	int pointCap = 11;
 	int PointCap
 	{
@@ -43,7 +46,7 @@ public class StartGameMenuUI : MonoBehaviour
 
 	public void GameStart_Click()
 	{
-		FrisbeeGame.Instance.RequestNewGame(TeamSize, PointCap);
+		FrisbeeGame.Instance.RequestNewGame(TeamSize, PointCap, AutoAddBots.isOn, AutoRebalanceTeams.isOn);
 		Close();
 	}
 
