@@ -4,6 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Net;
+using UnityEngine.Networking;
 
 #if UNITY_STANDALONE
 using Steamworks;
@@ -16,8 +18,9 @@ public class LoginMenuUI : MonoBehaviour
 	public InputField InputName;
 	public Text RegionName;
 
-    // Start is called before the first frame update
-    void Start()
+	public TMPro.TMP_Text AnnouncementText;
+
+	IEnumerator Start()
     {
 #if UNITY_EDITOR
 		if (DevAutoLogin)
@@ -36,10 +39,24 @@ public class LoginMenuUI : MonoBehaviour
 #endif
 
 		CurrentRegion = 0;
+
+		using (UnityWebRequest request = UnityWebRequest.Get(@"https://raw.githubusercontent.com/bombomby/discspace-public/master/announcements.txt"))
+		{
+			yield return request.SendWebRequest();
+
+			if (request.result == UnityWebRequest.Result.Success)
+			{
+				AnnouncementText.text = request.downloadHandler.text;
+			}
+			else
+			{
+				AnnouncementText.text = "Failed to retrieve tournament data :(";
+			}
+		}
 	}
 
-    // Update is called once per frame
-    void Update()
+	// Update is called once per frame
+	void Update()
     {
         if (InputName.isFocused && InputName.text != String.Empty && Input.GetButtonDown("Submit"))
 		{
@@ -94,15 +111,5 @@ public class LoginMenuUI : MonoBehaviour
 		{
 			OnLoginButtonClick();
 		}
-	}
-
-	public void OnDiscordLinkClicked()
-	{
-		Application.OpenURL("https://discord.gg/4b8fSEF9aT");
-	}
-
-	public void OnDontateLinkClicked()
-	{
-		Application.OpenURL("https://discspace.itch.io/play/donate");
 	}
 }

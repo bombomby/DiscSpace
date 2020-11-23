@@ -43,6 +43,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	int MaxScore { get; set; } = 11;
 	bool AutoRebalanceTeams { get; set; } = true;
+
 	bool AutoAddBots { get; set; } = true;
 
 	public static FrisbeeGame Instance;
@@ -298,6 +299,31 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		get { return Teams[0].Score + Teams[1].Score; }
 	}
 
+	void VerifyPlayersInbound()
+	{
+		bool allPlayersInbound = true;
+
+		BoxCollider gameCollider = ActiveBoundsOffence;
+		Bounds area = new Bounds(gameCollider.center, gameCollider.size);
+
+		GameObject[] players = GameObject.FindGameObjectsWithTag("Player");
+		foreach (GameObject player in players)
+		{
+			if (!area.Contains(player.transform.position))
+				allPlayersInbound = false;
+		}
+
+		if (!allPlayersInbound)
+			ResetPlayers();
+	}
+
+	void VerifyDiscCount()
+	{
+		GameObject[] discs = GameObject.FindGameObjectsWithTag("Disc");
+		if (discs.Length != 1)
+			ResetDisc(true);
+	}
+
 	void UpdateState()
 	{
 		switch (CurrentState)
@@ -305,6 +331,8 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 			case GameState.Game_Starting:
 				if (CurrentStateElapsed > StartingPointDelaySec)
 				{
+					VerifyPlayersInbound();
+					VerifyDiscCount();
 					CmdAnnouncement(null, 0, AnnouncementUI.SoundFX.GameOn);
 					CurrentState = GameState.Game_Playing;
 				}
@@ -410,6 +438,9 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	public void CmdStartGame(int teamSize, int pointCap, bool autoAddBots, bool autoRebalanceTeams)
 	{
+		// Eject the player to get him up to speed
+		Spaceship.Instance.CmdEject();
+
 		foreach (Team team in Teams)
 			team.MaxTeamSize = teamSize;
 
@@ -560,10 +591,8 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	}
 
-	public void CmdStartPoint()
+	void ResetPlayers()
 	{
-		ResetDisc(false);
-
 		for (int teamIndex = 0; teamIndex < NumPlayingTeams; ++teamIndex)
 		{
 			Team team = Teams[teamIndex];
@@ -588,6 +617,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 					player.GetComponent<PlayerController>().PV.RPC("RPC_Teleport", RpcTarget.All, spawn.position, spawn.rotation);
 			}
 		}
+	}
+
+	public void CmdStartPoint()
+	{
+		ResetDisc(false);
+		ResetPlayers();
 
 		CurrentState = GameState.Game_Starting;
 		CmdAnnouncement("Get Ready!", StartingPointDelaySec);

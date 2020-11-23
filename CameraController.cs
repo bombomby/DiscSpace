@@ -6,6 +6,8 @@ using UnityEngine.Events;
 
 public class CameraController : MonoBehaviour
 {
+	PlayerInput Controls;
+
 	public bool RotateCameraX;
 	public bool RotateCameraY;
 
@@ -27,7 +29,10 @@ public class CameraController : MonoBehaviour
 
 	}
 
-
+	private void Awake()
+	{
+		Controls = new PlayerInput();
+	}
 
 
 	// Start is called before the first frame update
@@ -89,8 +94,20 @@ public class CameraController : MonoBehaviour
 		{
 			float speed = CameraTurnSpeed * SettingsMenuUI.Instance.CameraSpeed;
 
-			y = Input.GetAxis("Mouse X") * speed * Time.deltaTime;
-			x = -Input.GetAxis("Mouse Y") * speed * Time.deltaTime;
+			if (GameSettings.UseNewInputSystem)
+			{
+				Vector2 dir = Controls.Camera.Turn.ReadValue<Vector2>();
+				y = dir.x;
+				x = -dir.y;
+			}
+			else
+			{
+				y = Input.GetAxis("Mouse X");
+				x = -Input.GetAxis("Mouse Y");
+			}
+
+			x *= speed * Time.deltaTime;
+			y *= speed * Time.deltaTime;
 		}
 
 		float angleX = RotateCameraX ? Mathf.Clamp(transform.eulerAngles.x + x, CameraMinTurnAngle, CameraMaxTurnAngle) : transform.eulerAngles.x;
@@ -107,12 +124,12 @@ public class CameraController : MonoBehaviour
 	void LateUpdate()
     {
 #if UNITY_EDITOR
-		if (Input.GetKeyDown(KeyCode.F1))
+		if (GameSettings.UseNewInputSystem ? GameSettings.Controls.Camera.SwitchCameraMode.triggered : Input.GetKeyDown(KeyCode.F1))
 		{
 			Mode = (CameraMode)(((int)Mode + 1) % Enum.GetValues(typeof(CameraMode)).Length);
 		}
 
-		if (Input.GetKeyDown(KeyCode.F2))
+		if (GameSettings.UseNewInputSystem ? GameSettings.Controls.Camera.ToggleCinematic.triggered : Input.GetKeyDown(KeyCode.F2))
 		{
 			IsCinematic = !IsCinematic;
 		}

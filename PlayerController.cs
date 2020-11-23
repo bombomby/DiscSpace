@@ -7,6 +7,8 @@ using UnityEngine.Networking;
 
 public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPunObservable
 {
+	public PlayerInput Controls;
+
 	public PhotonView PV;
 	public AimController AC;
 	public RPGStats Stats;
@@ -62,9 +64,13 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 	public Vector3 Jump;
 	public Vector3 Layout;
 
+	public bool DevLocal = false;
+
 	// Start is called before the first frame update
 	private void Awake()
 	{
+		Controls = new PlayerInput();
+
 		PV = GetComponent<PhotonView>();
 		AC = GetComponent<AimController>();
 		Body = GetComponent<Rigidbody>();
@@ -75,11 +81,21 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		GameStats = GetComponent<PlayerStats>();
 	}
 
+	bool IsMine
+	{
+#if UNITY_EDITOR
+		get { return PV.IsMine || DevLocal; }
+#else
+		get { return PV.IsMine; }
+#endif
+	}
+
+
 	void Start()
     {
-		IsRemote = !PV.IsMine;
+		IsRemote = !IsMine;
 
-		if (PV.IsMine && !IsBot)
+		if (IsMine && !IsBot)
 		{
 			Camera.main.GetComponent<CameraController>().Target = gameObject;
 			FrisbeeGame.Instance.MainPlayer = gameObject;
@@ -190,7 +206,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 	void UpdateNetwork()
 	{
-		if (!PV.IsMine && NetTransform != null)
+		if (!IsMine && NetTransform != null)
 		{
 
 			if (Vector3.Distance(transform.position, NetTransform.Position) < NetSettings.TeleportRadius)
@@ -256,10 +272,23 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 		Vector3 inputVelocity = new Vector3(0, 0, 0);
 
-		if (PV.IsMine && GetComponent<BotController>() == null && FrisbeeGame.Instance.CanProcessKeyboard && !CameraController.IsFreeCamEnabled)
+		if (IsMine && GetComponent<BotController>() == null && FrisbeeGame.Instance.CanProcessKeyboard && !CameraController.IsFreeCamEnabled)
 		{
-			float h = Input.GetAxis("Horizontal") + Input.GetAxis("Horizontal Movement");
-			float v = Input.GetAxis("Vertical") + Input.GetAxis("Vertical Movement");
+			float h = 0.0f;
+			float v = 0.0f;
+
+			if (GameSettings.UseNewInputSystem)
+			{
+				Vector2 dir = GameSettings.Controls.Player.Movement.ReadValue<Vector2>();
+
+				h = dir.y;
+				v = dir.x;
+			}
+			else
+			{
+				h = Input.GetAxis("Horizontal") + Input.GetAxis("Horizontal Movement");
+				v = Input.GetAxis("Vertical") + Input.GetAxis("Vertical Movement");
+			}
 
 			Vector3 movement = new Vector3(h, 0.0f, v);
 
@@ -276,7 +305,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 			inputVelocity = movement * Stats.CurrentStats.MoveSpeed;
 
-			float burstMode = Input.GetAxis("Sprint");
+			float burstMode = GameSettings.UseNewInputSystem ? GameSettings.Controls.Player.Sprint.ReadValue<float>() : Input.GetAxis("Sprint");
 
 			if (burstMode > Mathf.Epsilon && Stats.CurrentStats.CanBurst)
 				inputVelocity *= Mathf.Lerp(1.0f, Stats.CurrentStats.MoveSpeedBurstMultiplier, burstMode);
@@ -300,7 +329,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 			if (CanLayout)
 			{
-				if (Input.GetButtonDown("Jump"))
+				if (GameSettings.UseNewInputSystem ? Controls.Player.Jump.triggered : Input.GetButtonDown("Jump"))
 				{
 					StartLayout();
 				}
@@ -308,7 +337,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 			if (CanJump)
 			{
-				if (Input.GetButtonDown("Jump") && isGrounded)
+				if ((GameSettings.UseNewInputSystem ? Controls.Player.Jump.triggered : Input.GetButtonDown("Jump"))  && isGrounded)
 				{
 					StartJump();
 					isGrounded = false;
@@ -318,7 +347,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 		PlayerAnimator.SetFloat("Speed", Body.velocity.magnitude);
 
-		if (PV.IsMine && AC.HasDiscInHands && !IsBot && inputVelocity.magnitude < Mathf.Epsilon)
+		if (IsMine && AC.HasDiscInHands && !IsBot && inputVelocity.magnitude < Mathf.Epsilon)
 		{
 			inputVelocity = Camera.main.transform.forward;
 		}
@@ -351,13 +380,25 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		}
 	}
 
+	void OnDrawGizmos()
+	{
+		Gizmos.color = Color.red;
+		if (IsKnockedDown)
+			Gizmos.DrawSphere(this.transform.position, 1.0f);
+
+		Gizmos.color = Color.green;
+		if (CanMove)
+			Gizmos.DrawSphere(this.transform.position + new Vector3(0f, 2.0f, 0f), 1.0f);
+	}
+
+
 	const float GameHeightLimit = 1.1f;
 	const float PushOutSpeed = 3.0f;
 	const float PushOutSlideDampening = 0.61803f;
 	
 	void FixedUpdate()
 	{
-		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) && PV.IsMine)
+		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) && IsMine)
 		{
 			// Chack Max Height
 			if (transform.position.y > GameHeightLimit)
@@ -373,7 +414,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 				BoxCollider gameCollider = FrisbeeGame.Instance.GetTeamStatus(AC.Team) == FrisbeeGame.TeamStatus.Offence ? FrisbeeGame.Instance.ActiveBoundsOffence : FrisbeeGame.Instance.ActiveBoundsDefence;
 				Bounds area = new Bounds(gameCollider.center, gameCollider.size);
 
-				if (Utils.Distance(area, nextPos) > Utils.Distance(area, transform.position))
+				if (Utils.Distance(area, nextPos) > Utils.Distance(area, transform.position) + 0.01f)
 				{
 					float maxVelocity = Body.velocity.magnitude;
 

@@ -424,8 +424,12 @@ public class AimController : MonoBehaviour
 			{
 				GameObject target = SelectClosestTarget(transform.forward);
 
-				if ((Time.time - CurrentTargetTimestamp) > TARGET_CHANGE_DELAY_SEC || (target == null))
-					SetTarget(target);
+				if ((Time.time - CurrentTargetTimestamp) > TARGET_CHANGE_DELAY_SEC)
+				{
+					if (target == null || !Input.GetButton("HoldAim"))
+						SetTarget(target);
+				}
+					
 			}
 			else
 			{
@@ -655,7 +659,7 @@ public class AimController : MonoBehaviour
 
 	void OnDrawGizmos()
 	{
-		Gizmos.color = Color.red;
-		Gizmos.DrawSphere(this.transform.position, Catcher.radius);
+		//Gizmos.color = Color.red;
+		//Gizmos.DrawSphere(this.transform.position, Catcher.radius);
 	}
 }

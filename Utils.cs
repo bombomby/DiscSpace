@@ -22,7 +22,7 @@ public class Utils
 	public static string ReplaceBadWords(string text)
 	{
 		//return text;
-		return BWFManager.Instance.ReplaceAll(text, Crosstales.BWF.Model.Enum.ManagerMask.BadWord | Crosstales.BWF.Model.Enum.ManagerMask.Domain);
+		return BWFManager.Instance.ReplaceAll(text, Crosstales.BWF.Model.Enum.ManagerMask.BadWord);
 	}
 
 	const int KeyCodeRange = 256;
@@ -89,5 +89,20 @@ public class Utils
 	{
 		string signature = string.Format("{0}{1}{2}", StripSignature(player.NickName), room, pin);
 		return ComputeSHA256(signature);
+	}
+
+
+	public static bool OpenURL(string url)
+	{
+		if (!string.IsNullOrEmpty(url))
+		{
+#if UNITY_WEBGL
+			Application.ExternalEval(string.Format("window.open(\"{0}\")", url));
+#else
+			Application.OpenURL(url);
+#endif
+			return true;
+		}
+		return false;
 	}
 }

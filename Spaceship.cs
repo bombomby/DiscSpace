@@ -9,6 +9,8 @@ public class Spaceship : MonoBehaviour
 	private Animator ShipAnimator;
 	public Interactive InteractiveObject;
 
+	public static Spaceship Instance;
+
 	// Start is called before the first frame update
 	void Start()
     {
@@ -16,11 +18,10 @@ public class Spaceship : MonoBehaviour
 		PV = GetComponent<PhotonView>();
 	}
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+	private void Awake()
+	{
+		Instance = this;
+	}
 
 	bool IsFlying;
 	Vector3 OriginalPosition;
@@ -32,6 +33,17 @@ public class Spaceship : MonoBehaviour
 			return;
 
 		if (PV.IsMine && FlyingPlayer != null)
+		{
+			PV.RPC("RPC_FlyToMoonFinish", RpcTarget.All, FlyingPlayer.GetComponent<PhotonView>().ViewID);
+		}
+	}
+
+	public void CmdEject()
+	{
+		if (!IsFlying)
+			return;
+
+		if (FlyingPlayer != null)
 		{
 			PV.RPC("RPC_FlyToMoonFinish", RpcTarget.All, FlyingPlayer.GetComponent<PhotonView>().ViewID);
 		}

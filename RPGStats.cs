@@ -24,6 +24,9 @@ public class RPGStats : MonoBehaviour
 		Balanced,
 		Handler,
 		Cutter,
+		Newbie,
+		Cannon,
+		DMachine,
 	}
 
 	Specialization currentSpecialization = Specialization.Balanced;
@@ -35,6 +38,12 @@ public class RPGStats : MonoBehaviour
 		}
 		set
 		{
+			if (currentSpecialization != value && PV.IsMine)
+			{
+				PlayerPrefs.SetInt(SpecializationVar, (int)value);
+				PlayerPrefs.Save();
+			}
+
 			currentSpecialization = value;
 			PV.RPC("RPC_SelectSpecialization", RpcTarget.AllBuffered, (int)currentSpecialization);
 		}
@@ -300,10 +309,13 @@ public class RPGStats : MonoBehaviour
 		PV = GetComponent<PhotonView>();
 	}
 
+	const string SpecializationVar = "Specialization";
+
 	public const float HealthOutOfBoundsDrainSpeed = 50.0f;
 
 	private void Start()
 	{
+		CurrentSpecialization = (Specialization)PlayerPrefs.GetInt(SpecializationVar, 0);
 		ApplyStats();
 	}
 

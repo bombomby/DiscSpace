@@ -33,7 +33,7 @@ public class JoinVideoChatMenuUI : MonoBehaviourPunCallbacks
 	{
 		if (!string.IsNullOrEmpty(Link))
 		{
-			Application.OpenURL(Link);
+			Utils.OpenURL(Link);
 		}
 		Close();
 	}

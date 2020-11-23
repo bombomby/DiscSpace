@@ -37,7 +37,7 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 		set
 		{
 			playerLimit = Mathf.Clamp(value, 3, 7);
-			PlayerLimitText.text = playerLimit > 5 ? "No Limit" : string.Format("{0}v{0}", playerLimit);
+			PlayerLimitText.text = string.Format("{0}v{0}", playerLimit);
 		}
 	}
 
@@ -54,7 +54,7 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 #if UNITY_EDITOR
 		if (DevRoomAutoCreate && PhotonNetwork.InLobby)
 		{
-			CreateRoom("Test Room", 6);
+			CreateRoom("Test Room", 6, null, "0987");
 			DevRoomAutoCreate = false;
 		}
 #endif

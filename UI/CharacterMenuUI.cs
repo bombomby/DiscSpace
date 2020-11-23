@@ -15,11 +15,6 @@ public class CharacterMenuUI : MonoBehaviour
 	{
 		RPGStats stats = FrisbeeGame.Instance.MainPlayer.GetComponent<RPGStats>();
 		stats.CurrentSpecialization = (RPGStats.Specialization)specialization;
-
-		for (int i = 0; i < SpecializationGroup.childCount; ++i)
-		{
-			SpecializationGroup.GetChild(i).Find("Button").Find("Foreground").GetComponent<Image>().sprite = (i == specialization ? SelectedSpecializationForeground : NormalSpecializationForeground);
-		}
 	}
 
 	RPGStats.Stats DefaultStats = new RPGStats.Stats();
@@ -87,6 +82,13 @@ public class CharacterMenuUI : MonoBehaviour
 				UpdateStat(RecoveryStatText, stats.StaminaRecoverySpeed / DefaultStats.StaminaRecoverySpeed);
 				UpdateStat(DiscSpaceStatText, stats.DiscSpace / DefaultStats.DiscSpace);
 				UpdateStat(MaxDiscCurveStatText, stats.MaxDiscCurve / DefaultStats.MaxDiscCurve);
+
+				int specialization = (int)mainPlayer.GetComponent<RPGStats>().CurrentSpecialization;
+
+				for (int i = 0; i < SpecializationGroup.childCount; ++i)
+				{
+					SpecializationGroup.GetChild(i).Find("Button").Find("Foreground").GetComponent<Image>().sprite = (i == specialization ? SelectedSpecializationForeground : NormalSpecializationForeground);
+				}
 			}
 
 			GameObject player = FrisbeeGame.Instance.MainPlayer;

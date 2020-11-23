@@ -11,6 +11,7 @@ public class StartGameMenuUI : MonoBehaviour
 
 	public Toggle AutoAddBots;
 	public Toggle AutoRebalanceTeams;
+	public Toggle EnableSpecializationChange;
 
 	int pointCap = 11;
 	int PointCap

@@ -82,7 +82,7 @@ public class ResourceBar : MonoBehaviour
 	// Update is called once per frame
 	void Update()
     {
-        if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
+        if (GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.ShowStats.triggered : (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)))
 		{
 			ValueText.enabled = true;
 		}

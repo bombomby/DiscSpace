@@ -116,12 +116,12 @@ public class MenuManager : MonoBehaviour
 
 		if (!HasOpenWindow(UIWindow.Interaction.Keyboard))
 		{
-			if ((DateTime.Now - LastOpened).TotalSeconds > MenuReopenDelay && Input.GetButtonUp("Main Menu"))
+			if ((DateTime.Now - LastOpened).TotalSeconds > MenuReopenDelay && (GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.OpenMenu.triggered : Input.GetButtonUp("Main Menu")))
 			{
 				UIWindow.GetWindow(UIWindowID.PauseMenu).Show();
 			}
 
-			if (Input.GetButtonDown("Chat Menu") && SettingsMenuUI.Instance.EnableTextChat)
+			if ((GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.OpenChat.triggered : Input.GetButtonDown("Chat Menu")) && SettingsMenuUI.Instance.EnableTextChat)
 			{
 				UIWindow.GetWindow(UIWindowID.TextChat).Show();
 			}
@@ -132,7 +132,7 @@ public class MenuManager : MonoBehaviour
 		}
 
 		UIWindow emojiWindow = UIWindow.GetWindow(UIWindowID.EmojiMenu);
-		if (Input.GetButtonDown("Emoji Menu"))
+		if ((GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.OpenEmoji.triggered : Input.GetButtonDown("Emoji Menu")))
 		{
 			if (!HasOpenWindow(UIWindow.Interaction.Mouse))
 			{
@@ -140,11 +140,13 @@ public class MenuManager : MonoBehaviour
 			}
 		}
 
-		if (Input.GetButtonUp("Emoji Menu"))
+		if ((GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.OpenEmoji.triggered : Input.GetButtonUp("Emoji Menu")))
 		{
 			emojiWindow.GetComponent<EmojiMenuUI>().Close();
 		}
 
-		UpdateNavigation();
+		// VS TODO: UpdateNavigation
+		if (!GameSettings.UseNewInputSystem)
+			UpdateNavigation();
 	}
 }
