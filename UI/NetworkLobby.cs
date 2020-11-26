@@ -18,7 +18,7 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 	}
 
 	public const string NetworkVersion = "14";
-	public const string GameVersion = "0.9.10";
+	public const string GameVersion = "0.9.11";
 	
 
 	// Start is called before the first frame update
@@ -60,7 +60,8 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 
 	public void Disconnect()
 	{
-		PhotonNetwork.LeaveRoom(false);
+		if (PhotonNetwork.InRoom)
+			PhotonNetwork.LeaveRoom(false);
 		PhotonNetwork.Disconnect();
 	}
 

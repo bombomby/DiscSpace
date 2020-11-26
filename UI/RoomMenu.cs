@@ -1,5 +1,6 @@
 ﻿using Photon.Pun;
 using Photon.Realtime;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -15,6 +16,8 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 
 	public GameObject RoomListItemPrefab;
 
+	public Text RegionName;
+
 	public Toggle RoomPinToggle;
 	public Text PlayerLimitText;
 
@@ -23,6 +26,66 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 
 	private static RoomMenu instance;
 	public static RoomMenu Instance { get { return instance; } 	}
+
+	[Serializable]
+	public class Region
+	{
+		public string Name;
+		public string City;
+		public string Token;
+	}
+
+	public List<Region> Regions;
+
+	int currentRegion = -1;
+
+	void UpdateRegionName()
+	{
+		RegionName.text = string.Format("Region: {0}", Regions[CurrentRegion].Name);
+	}
+
+	public int CurrentRegion
+	{
+		get { return currentRegion; }
+		set
+		{
+			currentRegion = (value + Regions.Count) % Regions.Count;
+			UpdateRegionName();
+
+			NetworkLobby.Instance.Disconnect();
+			Clean();
+			NetworkLobby.Instance.Login(NetworkLobby.CurrentPlayerName, Regions[currentRegion].Token);
+		}
+	}
+
+	public override void OnConnectedToMaster()
+	{
+		if (currentRegion == -1)
+		{
+			string region = PhotonNetwork.CloudRegion.Replace("/*", "");
+			for (int i = 0; i < Regions.Count; ++i)
+			{
+				if (Regions[i].Token == region)
+				{
+					currentRegion = i;
+					UpdateRegionName();
+				}
+			}
+		}
+	}
+
+	public void NextRegion()
+	{
+		if (CurrentRegion != -1)
+			CurrentRegion = CurrentRegion + 1;
+	}
+
+	public void PrevRegion()
+	{
+		if (CurrentRegion != -1)
+			CurrentRegion = CurrentRegion - 1;
+	}
+
 
 	private void Awake()
 	{
@@ -117,10 +180,10 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 	public void CreateRoomButton_OnClick()
 	{
 		string name = RoomNameInputText.text;
-		if (name != string.Empty)
+		//if (name != string.Empty)
 		{
 			string link = ZoomLinkInputText.text;
-			string password = RoomPinToggle.isOn ? Random.Range(1000, 9999).ToString() : null;
+			string password = RoomPinToggle.isOn ? UnityEngine.Random.Range(1000, 9999).ToString() : null;
 			byte maxPlayers = (byte)(playerLimit > 5 ? 16 : playerLimit * 2);
 			CreateRoom(name, maxPlayers, link, password);
 		}

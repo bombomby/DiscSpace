@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class CharacterMenuUI : MonoBehaviour
@@ -68,6 +69,8 @@ public class CharacterMenuUI : MonoBehaviour
 		}
 	}
 
+	bool wasOpen = false;
+
 	// Update is called once per frame
 	void Update()
     {
@@ -87,7 +90,13 @@ public class CharacterMenuUI : MonoBehaviour
 
 				for (int i = 0; i < SpecializationGroup.childCount; ++i)
 				{
-					SpecializationGroup.GetChild(i).Find("Button").Find("Foreground").GetComponent<Image>().sprite = (i == specialization ? SelectedSpecializationForeground : NormalSpecializationForeground);
+					Transform button = SpecializationGroup.GetChild(i).Find("Button");
+					button.Find("Foreground").GetComponent<Image>().sprite = (i == specialization ? SelectedSpecializationForeground : NormalSpecializationForeground);
+
+					if (!wasOpen && (i == specialization))
+					{
+						EventSystem.current.SetSelectedGameObject(button.gameObject);
+					}
 				}
 			}
 
@@ -101,6 +110,8 @@ public class CharacterMenuUI : MonoBehaviour
 			if (Window.IsFocused && Input.GetButtonDown("Select Tab"))
 				SelectTab(Input.GetAxis("Select Tab"));
 		}
+
+		wasOpen = Window.IsOpen;
 	}
 
 	public void OnCloseButtonClick()

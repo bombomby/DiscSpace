@@ -22,9 +22,12 @@ public class TeamMenuUI : MonoBehaviour
 
 	Dictionary<GameObject, PlayerItem> playerMap = new Dictionary<GameObject, PlayerItem>();
 
+	public static TeamMenuUI Instance;
+
 	// Start is called before the first frame update
 	void Awake()
     {
+		Instance = this;
 		Window = GetComponent<UIWindow>();
     }
 
@@ -58,6 +61,7 @@ public class TeamMenuUI : MonoBehaviour
 		if (team < FrisbeeGame.NumPlayingTeams)
 		{
 			GameObject item = Instantiate(TeamItemListPrefab[team]);
+			item.GetComponent<TeamListItem>().Player = player;
 			item.transform.SetParent(TeamListContent[team].transform, false);
 			return item;
 		}
@@ -91,15 +95,6 @@ public class TeamMenuUI : MonoBehaviour
 				item.Team = team;
 				Destroy(item.ListItem);
 				item.ListItem = CreateItem(player);
-			}
-
-
-			if (item.ListItem != null)
-			{
-				RPGStats.Specialization specialization = player.GetComponent<RPGStats>().CurrentSpecialization;
-
-				item.ListItem.transform.Find("Player Name Text").GetComponent<Text>().text = player.GetComponent<PlayerTag>().Name;
-				item.ListItem.transform.Find("Player Specialization Icon").GetComponent<Image>().sprite = SpecializationIcons[(int)specialization];
 			}
 		}
 

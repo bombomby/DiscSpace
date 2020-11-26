@@ -16,11 +16,12 @@ public class LoginMenuUI : MonoBehaviour
 	public bool DevAutoLogin;
 
 	public InputField InputName;
-	public Text RegionName;
 
 	public TMPro.TMP_Text AnnouncementText;
 
-	IEnumerator Start()
+	WWW request;
+
+	/*IEnumerator*/ void Start()
     {
 #if UNITY_EDITOR
 		if (DevAutoLogin)
@@ -38,22 +39,24 @@ public class LoginMenuUI : MonoBehaviour
 		}
 #endif
 
-		CurrentRegion = 0;
+		/// VS: UnityWebRequest breask WebGL version!!!
+		//using (UnityWebRequest request = UnityWebRequest.Get(@"https://raw.githubusercontent.com/bombomby/discspace-public/master/announcements.txt"))
+		//{
+		//	yield return request.SendWebRequest();
 
-		using (UnityWebRequest request = UnityWebRequest.Get(@"https://raw.githubusercontent.com/bombomby/discspace-public/master/announcements.txt"))
-		{
-			yield return request.SendWebRequest();
-
-			if (request.result == UnityWebRequest.Result.Success)
-			{
-				AnnouncementText.text = request.downloadHandler.text;
-			}
-			else
-			{
-				AnnouncementText.text = "Failed to retrieve tournament data :(";
-			}
-		}
+		//	if (request.result == UnityWebRequest.Result.Success)
+		//	{
+		//		AnnouncementText.text = request.downloadHandler.text;
+		//	}
+		//	else
+		//	{
+		//		AnnouncementText.text = "Failed to retrieve tournament data :(";
+		//	}
+		//}
+		request = new WWW(@"https://raw.githubusercontent.com/bombomby/discspace-public/master/announcements.txt");
 	}
+
+	bool isWaitingForRequest = true;
 
 	// Update is called once per frame
 	void Update()
@@ -62,38 +65,12 @@ public class LoginMenuUI : MonoBehaviour
 		{
 			OnLoginButtonClick();
 		}
-    }
 
-	[Serializable]
-	public class Region
-	{
-		public string Name;
-		public string City;
-		public string Token;
-	}
-
-	public List<Region> Regions;
-	public int currentRegion = 0;
-
-	public int CurrentRegion
-	{
-		get { return currentRegion; }
-		set
+		if (isWaitingForRequest && request.isDone)
 		{
-			currentRegion = (value + Regions.Count) % Regions.Count;
-			RegionName.text = String.Format("Region: {0}", Regions[currentRegion].Name);
+			AnnouncementText.text = request.text;
+			isWaitingForRequest = false;
 		}
-	}
-
-
-	public void NextRegion()
-	{
-		CurrentRegion = CurrentRegion + 1;
-	}
-
-	public void PrevRegion()
-	{
-		CurrentRegion = CurrentRegion - 1;
 	}
 
 	public void OnLoginButtonClick()
@@ -101,7 +78,7 @@ public class LoginMenuUI : MonoBehaviour
 		string name = InputName.text;
 		if (name != String.Empty)
 		{
-			NetworkLobby.Instance.Login(name, Regions[CurrentRegion].Token);
+			NetworkLobby.Instance.Login(name);
 		}
 	}
 

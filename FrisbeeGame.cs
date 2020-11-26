@@ -676,6 +676,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	}
 
 	HashSet<string> SignatureMismachNames = new HashSet<string>();
+	HashSet<string> KickedNames = new HashSet<string>();
 
 	public override void OnPlayerEnteredRoom(Player newPlayer)
 	{
@@ -691,6 +692,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 				PhotonNetwork.CloseConnection(newPlayer);
 				return;
 			}
+
+			if (KickedNames.Contains(newPlayerName))
+			{
+				PhotonNetwork.CloseConnection(newPlayer);
+				return;
+			}
 			ForceUpdateGameState(newPlayer);
 		}
 
@@ -699,6 +706,15 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		{
 			SetAnnouncement(String.Format("{0} has connected", newPlayerName), 3);
 		}
+	}
+
+	public void KickPlayer(Player player)
+	{
+		string name = Utils.StripSignature(player.NickName);
+		KickedNames.Add(name);
+
+		SetAnnouncement(String.Format("{0} has been kicked out", name), 3);
+		PhotonNetwork.CloseConnection(player);
 	}
 
 	void SpawnPlayer(Vector3 pos, Quaternion rot)
@@ -714,7 +730,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		if (!otherPlayer.IsLocal && PhotonNetwork.InRoom)
 		{
 			string otherPlayerName = Utils.StripSignature(otherPlayer.NickName);
-			if (!SignatureMismachNames.Contains(otherPlayerName))
+			if (!SignatureMismachNames.Contains(otherPlayerName) && !KickedNames.Contains(otherPlayerName))
 			{
 				SetAnnouncement(String.Format("{0} has disconnected", otherPlayerName), 3);
 			}

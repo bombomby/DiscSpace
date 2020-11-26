@@ -398,7 +398,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 	
 	void FixedUpdate()
 	{
-		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) && IsMine)
+		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) && IsMine && !AC.IsObserver)
 		{
 			// Chack Max Height
 			if (transform.position.y > GameHeightLimit)

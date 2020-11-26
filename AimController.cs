@@ -51,9 +51,9 @@ public class AimController : MonoBehaviour
     {
 		IsBot = GetComponent<BotController>() != null;
 		PV = GetComponent<PhotonView>();
-		PC = GetComponent<PlayerController>();
 		Audio = GetComponent<PlayerAudio>();
 		Stats = GetComponent<RPGStats>();
+		PC = GetComponent<PlayerController>();
 	}
 
 	void Start()
