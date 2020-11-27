@@ -120,6 +120,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		if (!isGrounded && collision.gameObject.tag == "Ground")
 		{
 			isGrounded = true;
+			Debug.DrawLine(transform.position, transform.position + Vector3.up * 2.0f, Color.blue, 5.0f);
 
 			if (isLayingOut)
 			{
@@ -188,22 +189,6 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		}
 	}
 
-
-	public void MoveTo(Vector3 target)
-	{
-		Debug.DrawLine(transform.position, target, Color.red);
-
-		//if (CanMove)
-		{
-			Vector3 direction = target - transform.position;
-			float dist = direction.magnitude;
-
-			direction.Normalize();
-			Vector3 velocity = direction * Mathf.Min(Stats.CurrentStats.MoveSpeed * Stats.CurrentStats.MoveSpeedBurstMultiplier, dist / Time.deltaTime);
-			Body.velocity = velocity;
-		}
-	}
-
 	void UpdateNetwork()
 	{
 		if (!IsMine && NetTransform != null)
@@ -214,14 +199,14 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 				float smoothRatio =  NetSettings.LerpRatio;
 				transform.position = Vector3.Lerp(transform.position, NetTransform.Position, smoothRatio);
 				transform.rotation = Quaternion.Lerp(transform.rotation, NetTransform.Rotation, smoothRatio);
-				Body.velocity = Vector3.Lerp(Body.velocity, NetTransform.Velocity, smoothRatio);
 			}
 			else
 			{
 				transform.position = NetTransform.Position;
 				transform.rotation = NetTransform.Rotation;
-				Body.velocity = NetTransform.Velocity;
 			}
+			Body.velocity = NetTransform.Velocity;
+			Debug.DrawLine(transform.position, NetTransform.Position, Color.red);
 		}
 	}
 
@@ -382,13 +367,13 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 	void OnDrawGizmos()
 	{
-		Gizmos.color = Color.red;
-		if (IsKnockedDown)
-			Gizmos.DrawSphere(this.transform.position, 1.0f);
+		//Gizmos.color = Color.red;
+		//if (IsKnockedDown)
+		//	Gizmos.DrawSphere(this.transform.position, 1.0f);
 
-		Gizmos.color = Color.green;
-		if (CanMove)
-			Gizmos.DrawSphere(this.transform.position + new Vector3(0f, 2.0f, 0f), 1.0f);
+		//Gizmos.color = Color.green;
+		//if (CanMove)
+		//	Gizmos.DrawSphere(this.transform.position + new Vector3(0f, 2.0f, 0f), 1.0f);
 	}
 
 

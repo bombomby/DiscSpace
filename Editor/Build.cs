@@ -14,6 +14,6 @@ public class Build
 	public static void BuildWebPlayer()
 	{
 		string path = $"{Application.dataPath}/../Build/Web";
-		BuildPipeline.BuildPlayer(EditorBuildSettings.scenes, path + "/index.html", BuildTarget.WebGL, BuildOptions.None);
+		BuildPipeline.BuildPlayer(EditorBuildSettings.scenes, path, BuildTarget.WebGL, BuildOptions.None);
 	}
 }

@@ -149,7 +149,13 @@ public class DiscController : MonoBehaviour
 		CurrentPlayer = playerView.gameObject;
 		CurrentTarget = targetView.gameObject;
 
-		Throw.Calc(GetAdjustedTargetPosition(CurrentPlayer.transform.position), GetAdjustedTargetPosition(CurrentTarget.transform.position), direction);
+		Vector3 throwOrigin = GetAdjustedTargetPosition(CurrentPlayer.transform.position);
+		Vector3 targetOrigin = GetAdjustedTargetPosition(CurrentTarget.transform.position);
+
+
+		Throw.Calc(throwOrigin, targetOrigin, direction);
+
+		Debug.DrawLine(throwOrigin, throwOrigin + direction * 3.0f, Color.blue, 3.0f);
 
 		CurrentFlyingTime = 0.0f;
 

@@ -180,13 +180,13 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 	public void CreateRoomButton_OnClick()
 	{
 		string name = RoomNameInputText.text;
-		//if (name != string.Empty)
-		{
-			string link = ZoomLinkInputText.text;
-			string password = RoomPinToggle.isOn ? UnityEngine.Random.Range(1000, 9999).ToString() : null;
-			byte maxPlayers = (byte)(playerLimit > 5 ? 16 : playerLimit * 2);
-			CreateRoom(name, maxPlayers, link, password);
-		}
+		if (string.IsNullOrEmpty(name))
+			name = "Room" + UnityEngine.Random.Range(0, 1000).ToString();
+
+		string link = ZoomLinkInputText.text;
+		string password = RoomPinToggle.isOn ? UnityEngine.Random.Range(1000, 9999).ToString() : null;
+		byte maxPlayers = (byte)(playerLimit > 5 ? 16 : playerLimit * 2);
+		CreateRoom(name, maxPlayers, link, password);
 	}
 
 	public void OnJoinRoom(string name)

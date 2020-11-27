@@ -186,7 +186,7 @@ public class AimController : MonoBehaviour
 		return result;
 	}
 
-	private List<GameObject> GetPotentialTargets(int teamIndex)
+	public List<GameObject> GetPotentialTargets(int teamIndex)
 	{
 		GameObject[] players = GameObject.FindGameObjectsWithTag("Player");
 
@@ -248,7 +248,7 @@ public class AimController : MonoBehaviour
 	const float OBSTRUCTION_CHECK_RADIUS = 5.0f;
 	const float OBSTRUCTION_CHECK_ANGLE = 15.0f;
 
-	bool IsObstructed(GameObject target)
+	public bool IsObstructed(GameObject target)
 	{
 		List<GameObject> opponents = FrisbeeGame.Instance.GetPlayers((Team + 1) % 2);
 		foreach (GameObject opponent in opponents)
@@ -659,6 +659,18 @@ public class AimController : MonoBehaviour
 
 	void OnDrawGizmos()
 	{
+		//Gizmos.color = Color.red;
+		//Gizmos.DrawSphere(this.transform.position, Catcher.radius);
+		if (HasDiscInHands)
+		{
+			List<GameObject> targets = GetPotentialTargets(Team);
+			foreach (GameObject target in targets)
+			{
+				Gizmos.color = IsObstructed(target) ? Color.red : Color.green;
+				Gizmos.DrawSphere(target.transform.position + Vector3.up * 2.0f, 0.5f);
+			}
+		}
+
 		//Gizmos.color = Color.red;
 		//Gizmos.DrawSphere(this.transform.position, Catcher.radius);
 	}

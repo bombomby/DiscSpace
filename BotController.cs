@@ -9,6 +9,8 @@ public class BotController : MonoBehaviour
 {
 	PhotonView PV;
 	AimController AC;
+	RPGStats Stats;
+	Rigidbody Body;
 
 	public float MaxThrowingDelay;
 	public float MaxMovingDelay;
@@ -22,6 +24,8 @@ public class BotController : MonoBehaviour
 	// Start is called before the first frame update
 	void Awake()
     {
+		Body = GetComponent<Rigidbody>();
+		Stats = GetComponent<RPGStats>();
 		PV = GetComponent<PhotonView>();
 		AC = GetComponent<AimController>();
 		Mover = GetComponent<PlayerController>();
@@ -79,6 +83,36 @@ public class BotController : MonoBehaviour
 		return null;
 	}
 
+	float CalcBestCurve(GameObject target)
+	{
+		if (AC.OpponentsInRange.Count > 0)
+		{
+			Vector3 dir = (target.transform.position - transform.position);
+			dir.y = 0.0f;
+
+			float curve = 0.0f;
+
+			if (dir.magnitude > 0.1f)
+			{
+				dir = dir.normalized;
+
+				foreach (GameObject opponent in AC.OpponentsInRange)
+				{
+					Vector3 opponentDir = opponent.transform.position - transform.position;
+					opponentDir.y = 0.0f;
+					opponentDir = opponentDir.normalized;
+
+					float angle = Vector3.SignedAngle(dir, opponentDir, Vector3.up);
+
+					curve += -Mathf.Sign(angle) * 1.0f;
+				}
+			}
+
+			return Mathf.Clamp(curve, -1.0f, 1.0f);
+		}
+
+		return Random.Range(-1.0f, 1.0f);
+	}
 
 	void UpdateDiscThrow()
 	{
@@ -89,7 +123,7 @@ public class BotController : MonoBehaviour
 			Vector3 targetDirection = FrisbeeGame.Instance.GetGoalZone(AC.Team).bounds.center - transform.position;
 			GameObject target = AC.SelectBestTarget(targetDirection);
 			AC.CurrentTarget = target;
-			float ratio = Random.Range(-1.0f, 1.0f);
+			float ratio = CalcBestCurve(target);
 			Vector3 throwDirection = AC.CalculateThrowDirectionFromRatio(ratio);
 			AC.CmdThrowDisc(AC.Disc, gameObject, AC.CurrentTarget, throwDirection);
 			CurrentThrowingDelay = 0.0f;
@@ -124,6 +158,19 @@ public class BotController : MonoBehaviour
 
 	public bool DisableMovement;
 
+	void SelectNextTarget()
+	{
+		Vector3 target;
+
+		// Get Random Point
+		do
+		{
+			target = GetNextRandomPoint();
+		} while (Vector3.Distance(target, NextTarget) < 5.0f);
+
+		NextTarget = target;
+	}
+
 	void Update()
     {
 #if UNITY_EDITOR
@@ -147,15 +194,7 @@ public class BotController : MonoBehaviour
 					{
 						CurrentMovingDelay = 0.0f;
 
-						Vector3 target;
-
-						// Get Random Point
-						do
-						{
-							target = GetNextRandomPoint();
-						} while (Vector3.Distance(target, NextTarget) < 5.0f);
-
-						NextTarget = target;
+						SelectNextTarget();
 					}
 				}
 			}
@@ -163,7 +202,43 @@ public class BotController : MonoBehaviour
 
 		if (AC.Disc == null && NextTarget != Vector3.zero)
 		{
-			Mover.MoveTo(NextTarget);
+			MoveTo(NextTarget);
 		}
     }
+
+	bool IsReceivingDisc()
+	{
+		foreach (GameObject obj in GameObject.FindGameObjectsWithTag("Disc"))
+		{
+			DiscController disc = obj.GetComponent<DiscController>();
+			if (disc.CurrentState == DiscController.DiscState.FLYING)
+			{
+				if (disc.CurrentTarget == gameObject)
+					return true;
+			}
+		}
+		return false;
+	}
+
+	public void MoveTo(Vector3 target)
+	{
+		Debug.DrawLine(transform.position, target, Color.red);
+
+		//if (CanMove)
+		{
+			Vector3 direction = target - transform.position;
+			float dist = direction.magnitude;
+
+			direction.Normalize();
+
+			float maxSpeed = Stats.CurrentStats.MoveSpeed * Stats.CurrentStats.MoveSpeedBurstMultiplier;
+
+			Vector3 velocity = direction * Mathf.Min(maxSpeed, dist / Time.deltaTime);
+			Body.velocity = velocity;
+
+			bool hasReachedDestination = maxSpeed >= (dist / Time.deltaTime);
+			if (hasReachedDestination && IsReceivingDisc())
+				SelectNextTarget();
+		}
+	}
 }
