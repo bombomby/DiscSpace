@@ -520,4 +520,9 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 			NetTransform.Velocity = (Vector3)stream.ReceiveNext();
 		}
 	}
+
+	public static bool IsValidPlayer(GameObject obj)
+	{
+		return obj != null && obj.GetComponent<PlayerController>() != null && !obj.GetComponent<PlayerController>().IsDestroyed;
+	}
 }

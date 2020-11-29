@@ -324,6 +324,55 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 			ResetDisc(true);
 	}
 
+	void UpdateDiscInGame()
+	{
+		if (!IsInState(GameState.Game))
+			return;
+
+		GameObject[] discs = GameObject.FindGameObjectsWithTag("Disc");
+		if (discs.Length != 1)
+		{
+			ResetDisc(true);
+		}
+		else
+		{
+			DiscController disc = discs[0].GetComponent<DiscController>();
+
+			switch (disc.CurrentState)
+			{
+				case DiscController.DiscState.IN_HANDS:
+					{
+						if (disc.CurrentPlayer != null && disc.CurrentPlayer.GetComponent<PlayerController>() == null || disc.CurrentPlayer.GetComponent<PlayerController>().IsDestroyed)
+						{
+							disc.CmdDrop(disc.CurrentPlayer, false);
+						}
+					}
+					break;
+
+
+				case DiscController.DiscState.FLYING:
+					{
+						if (!PlayerController.IsValidPlayer(disc.CurrentTarget))
+						{
+							if (PlayerController.IsValidPlayer(disc.CurrentThrower))
+								disc.CmdCatch(disc.CurrentThrower);
+							else
+								ResetDisc(true);
+						}
+						else if (!PlayerController.IsValidPlayer(disc.CurrentThrower))
+						{
+							if (PlayerController.IsValidPlayer(disc.CurrentTarget))
+								disc.CmdCatch(disc.CurrentTarget);
+							else
+								ResetDisc(true);
+						}
+					}
+					break;
+			}
+		}
+			
+	}
+
 	void UpdateState()
 	{
 		switch (CurrentState)
@@ -332,8 +381,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 				if (CurrentStateElapsed > StartingPointDelaySec)
 				{
 					VerifyPlayersInbound();
-					VerifyDiscCount();
-					CmdAnnouncement(null, 0, AnnouncementUI.SoundFX.GameOn);
+					VerifyDiscCount();					CmdAnnouncement(null, 0, AnnouncementUI.SoundFX.GameOn);
 					CurrentState = GameState.Game_Playing;
 				}
 				break;
@@ -393,6 +441,8 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		if (PhotonNetwork.IsMasterClient)
 		{
 			UpdateState();
+			// VS TODO: Enable after tournament
+			//UpdateDiscInGame();
 
 #if UNITY_EDITOR
 			if (Input.GetKeyDown(KeyCode.Alpha1))
@@ -518,7 +568,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	public const int NumPlayingTeams = 2;
 	public const int ObserverTeamIndex = 2;
 
-	private void UpdateBots()
+	private void UpdateBots(List<Vector3> goodSpawnPositions = null)
 	{
 		if (PhotonNetwork.IsMasterClient && AutoAddBots)
 		{
@@ -538,6 +588,13 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 				while (team.PlayerCount < maxTeamSize)
 				{
 					Vector3 pos = FindAvailableSpawnPoint();
+
+					if (goodSpawnPositions != null && goodSpawnPositions.Count > 0)
+					{
+						pos = goodSpawnPositions[goodSpawnPositions.Count - 1];
+						goodSpawnPositions.RemoveAt(goodSpawnPositions.Count - 1);
+					}
+
 					team.Bots.Add(CreateBot("Bot", teamIndex, pos, Quaternion.identity));
 				}
 
@@ -760,9 +817,13 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	{
 		if (PhotonNetwork.IsMasterClient && IsInState(GameState.Game) && !obj.GetComponent<PlayerController>().IsBot && obj.GetComponent<PlayerController>().IsRemote)
 		{
+			// VS TODO: Enable after tournament
+			//List<Vector3> goodSpawnPositions = new List<Vector3>() { obj.transform.position };
+
 			UpdateTeams();
 			EqualizeTeams();
-			UpdateBots();
+			UpdateBots(/*goodSpawnPositions*/);
+			//UpdateDiscInGame();
 			ResetDisc(true);
 		}
 	}

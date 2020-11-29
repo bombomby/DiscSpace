@@ -18,7 +18,7 @@ public class NetworkLobby : MonoBehaviourPunCallbacks
 	}
 
 	public const string NetworkVersion = "14";
-	public const string GameVersion = "0.9.12";
+	public const string GameVersion = "0.9.14";
 	
 
 	// Start is called before the first frame update

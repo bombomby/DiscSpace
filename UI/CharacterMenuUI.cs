@@ -16,6 +16,9 @@ public class CharacterMenuUI : MonoBehaviour
 	{
 		RPGStats stats = FrisbeeGame.Instance.MainPlayer.GetComponent<RPGStats>();
 		stats.CurrentSpecialization = (RPGStats.Specialization)specialization;
+
+		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game))
+			stats.CurrentStats.ZeroStamina();
 	}
 
 	RPGStats.Stats DefaultStats = new RPGStats.Stats();

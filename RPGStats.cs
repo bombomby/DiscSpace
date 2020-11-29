@@ -123,6 +123,11 @@ public class RPGStats : MonoBehaviour
 			MaxDiscCurve = 0.86f;
 		}
 
+		public void ZeroStamina()
+		{
+			Stamina = 0.0f;
+		}
+
 		public float Health;
 		public float MaxHealth;
 
