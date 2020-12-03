@@ -51,12 +51,36 @@ public class CameraController : MonoBehaviour
 		get { return Camera.main.GetComponent<CameraController>().Mode == CameraMode.FreeCam; }
 	}
 
-	public static bool IsCinematicModeEnabled
+	public delegate void CinenematicModeChangedHandler(bool isCinematic);
+	public CinenematicModeChangedHandler CinenematicModeChangedEvent;
+
+	public static event CinenematicModeChangedHandler CinematicModeChanged
 	{
-		get { return Camera.main.GetComponent<CameraController>().IsCinematic; }
+		add
+		{
+			Camera.main.GetComponent<CameraController>().CinenematicModeChangedEvent += value;
+		}
+		remove
+		{
+			Camera.main.GetComponent<CameraController>().CinenematicModeChangedEvent -= value;
+		}
 	}
 
-	public bool IsCinematic;
+	bool IsCinematicModeEnabled = false;
+
+	public bool IsCinematic
+	{
+		get { return IsCinematicModeEnabled; }
+		set
+		{
+			if (IsCinematicModeEnabled != value)
+			{
+				IsCinematicModeEnabled = value;
+				CinenematicModeChangedEvent?.Invoke(value);
+			}
+		}
+	}
+
 	CameraMode Mode = CameraMode.GameCam;
 
 	[Serializable]
@@ -69,17 +93,34 @@ public class CameraController : MonoBehaviour
 
 	public FreeCamSettings FreeCam = new FreeCamSettings();
 
+	Vector2 GetCameraInput()
+	{
+		if (GameSettings.UseNewInputSystem)
+		{
+			return Controls.Camera.Turn.ReadValue<Vector2>();
+		}
+		else
+		{
+			float y = Input.GetAxis("Pad X") + Input.GetAxis("Mouse X");
+			float x = Input.GetAxis("Pad Y") - Input.GetAxis("Mouse Y");
+			return new Vector2(x, y);
+		}
+	}
+
 	void UpdateFreeCamera()
 	{
 		float h = Input.GetAxis("Horizontal") + Input.GetAxis("Horizontal Movement");
 		float v = Input.GetAxis("Vertical") + Input.GetAxis("Vertical Movement");
 		Vector3 movement = transform.rotation * new Vector3(h, 0.0f, v) * FreeCam.MoveSpeed;
-		Vector3 altitude = new Vector3(0.0f, Input.GetAxis("Disc Charge Trigger") * FreeCam.FloatSpeed, 0.0f);
+		Vector3 altitude = new Vector3(0.0f, (Input.GetAxis("Disc Charge Trigger") + Input.GetAxis("Disc Charge")) * FreeCam.FloatSpeed, 0.0f);
 		transform.position = transform.position + new Vector3(movement.x, 0.0f, movement.z) + altitude;
 
-		float y = Input.GetAxis("Mouse X") * FreeCam.TurnSpeed * Time.deltaTime;
-		float x = Input.GetAxis("Mouse Y") * FreeCam.TurnSpeed * Time.deltaTime;
-		transform.eulerAngles = transform.eulerAngles + new Vector3(x, y, 0.0f);
+		float turnSpeed = FreeCam.TurnSpeed * SettingsMenuUI.Instance.CameraSpeed;
+
+		Vector3 camInput = GetCameraInput();
+		camInput *= turnSpeed * Time.deltaTime;
+
+		transform.eulerAngles = transform.eulerAngles + new Vector3(camInput.x, camInput.y, 0.0f);
 	}
 
 	void UpdateGameCamera()
@@ -87,31 +128,16 @@ public class CameraController : MonoBehaviour
 		if (Target == null)
 			return;
 
-		float y = 0.0f;
-		float x = 0.0f;
+		Vector2 camInput = GetCameraInput();
 
 		if (FrisbeeGame.Instance.CanProcessMouse)
 		{
 			float speed = CameraTurnSpeed * SettingsMenuUI.Instance.CameraSpeed;
-
-			if (GameSettings.UseNewInputSystem)
-			{
-				Vector2 dir = Controls.Camera.Turn.ReadValue<Vector2>();
-				y = dir.x;
-				x = -dir.y;
-			}
-			else
-			{
-				y = Input.GetAxis("Mouse X");
-				x = -Input.GetAxis("Mouse Y");
-			}
-
-			x *= speed * Time.deltaTime;
-			y *= speed * Time.deltaTime;
+			camInput *= speed * Time.deltaTime;
 		}
 
-		float angleX = RotateCameraX ? Mathf.Clamp(transform.eulerAngles.x + x, CameraMinTurnAngle, CameraMaxTurnAngle) : transform.eulerAngles.x;
-		float angleY = RotateCameraY ? transform.eulerAngles.y + y : transform.eulerAngles.y;
+		float angleX = RotateCameraX ? Mathf.Clamp(transform.eulerAngles.x + camInput.x, CameraMinTurnAngle, CameraMaxTurnAngle) : transform.eulerAngles.x;
+		float angleY = RotateCameraY ? transform.eulerAngles.y + camInput.y : transform.eulerAngles.y;
 		float angleZ = transform.eulerAngles.z;
 
 		transform.eulerAngles = new Vector3(angleX, angleY, angleZ);
@@ -123,7 +149,6 @@ public class CameraController : MonoBehaviour
 	// Update is called once per frame
 	void LateUpdate()
     {
-#if UNITY_EDITOR
 		if (GameSettings.UseNewInputSystem ? GameSettings.Controls.Camera.SwitchCameraMode.triggered : Input.GetKeyDown(KeyCode.F1))
 		{
 			Mode = (CameraMode)(((int)Mode + 1) % Enum.GetValues(typeof(CameraMode)).Length);
@@ -133,7 +158,6 @@ public class CameraController : MonoBehaviour
 		{
 			IsCinematic = !IsCinematic;
 		}
-#endif
 
 		switch (Mode)
 		{

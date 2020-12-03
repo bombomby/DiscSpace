@@ -269,12 +269,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	public bool CanMove
 	{
-		get { return CanProcessKeyboard && (CurrentState == GameState.Lobby || CurrentState == GameState.Game_Playing); }
+		get { return /*CanProcessKeyboard && */(CurrentState == GameState.Lobby || CurrentState == GameState.Game_Playing); }
 	}
 
 	public bool CanJump
 	{
-		get { return CanProcessKeyboard && ((CurrentState & (GameState.Lobby | GameState.Game_Playing | GameState.Game_Finishing)) != 0); }
+		get { return /*CanProcessKeyboard && */((CurrentState & (GameState.Lobby | GameState.Game_Playing | GameState.Game_Finishing)) != 0); }
 	}
 
 	public bool CanScore
@@ -341,6 +341,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 			switch (disc.CurrentState)
 			{
 				case DiscController.DiscState.IN_HANDS:
+				case DiscController.DiscState.IN_HANDS_PENDING:
 					{
 						if (disc.CurrentPlayer != null && disc.CurrentPlayer.GetComponent<PlayerController>() == null || disc.CurrentPlayer.GetComponent<PlayerController>().IsDestroyed)
 						{
@@ -355,7 +356,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 						if (!PlayerController.IsValidPlayer(disc.CurrentTarget))
 						{
 							if (PlayerController.IsValidPlayer(disc.CurrentThrower))
-								disc.CmdCatch(disc.CurrentThrower);
+								disc.CmdTryCatch(disc.CurrentThrower);
 							else
 								ResetDisc(true);
 						}
@@ -381,7 +382,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 				if (CurrentStateElapsed > StartingPointDelaySec)
 				{
 					VerifyPlayersInbound();
-					VerifyDiscCount();					CmdAnnouncement(null, 0, AnnouncementUI.SoundFX.GameOn);
+					CmdAnnouncement(null, 0, AnnouncementUI.SoundFX.GameOn);
 					CurrentState = GameState.Game_Playing;
 				}
 				break;
@@ -441,8 +442,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		if (PhotonNetwork.IsMasterClient)
 		{
 			UpdateState();
-			// VS TODO: Enable after tournament
-			//UpdateDiscInGame();
+			UpdateDiscInGame();
 
 #if UNITY_EDITOR
 			if (Input.GetKeyDown(KeyCode.Alpha1))
@@ -457,13 +457,13 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 			}
 #endif
 
-			UpdateCatchRadius();
 		}
 		else
 		{
 			CurrentStateElapsed += Time.deltaTime;
 		}
 
+		UpdateCatchRadius();
 		UpdatePlayerProximity();
 	}
 
@@ -817,14 +817,13 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	{
 		if (PhotonNetwork.IsMasterClient && IsInState(GameState.Game) && !obj.GetComponent<PlayerController>().IsBot && obj.GetComponent<PlayerController>().IsRemote)
 		{
-			// VS TODO: Enable after tournament
-			//List<Vector3> goodSpawnPositions = new List<Vector3>() { obj.transform.position };
+			List<Vector3> goodSpawnPositions = new List<Vector3>() { obj.transform.position };
 
 			UpdateTeams();
 			EqualizeTeams();
-			UpdateBots(/*goodSpawnPositions*/);
-			//UpdateDiscInGame();
-			ResetDisc(true);
+			UpdateBots(goodSpawnPositions);
+			UpdateDiscInGame();
+			//ResetDisc(true);
 		}
 	}
 

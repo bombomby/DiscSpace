@@ -4,9 +4,18 @@ using UnityEngine;
 
 public class DisableInCinematic : MonoBehaviour
 {
-    // Update is called once per frame
-    void Update()
-    {
-		gameObject.SetActive(!CameraController.IsCinematicModeEnabled);
-    }
+	private void Start()
+	{
+		CameraController.CinematicModeChanged += CameraController_CinematicModeChanged;
+	}
+
+	private void CameraController_CinematicModeChanged(bool isCinematic)
+	{
+		gameObject.SetActive(!isCinematic);
+	}
+
+	private void OnDestroy()
+	{
+		CameraController.CinematicModeChanged -= CameraController_CinematicModeChanged;
+	}
 }

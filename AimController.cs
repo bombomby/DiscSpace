@@ -366,7 +366,9 @@ public class AimController : MonoBehaviour
 
 	bool IsReleasingDisc()
 	{ 
-		return (Input.GetButtonUp("Disc Charge") && !Input.GetButton("Disc Charge")) || Input.GetButtonDown("Disc Release");
+		return FrisbeeGame.Instance.CanProcessMouse && 
+			   FrisbeeGame.Instance.CanProcessKeyboard && 
+			   ((Input.GetButtonUp("Disc Charge") && !Input.GetButton("Disc Charge")) || Input.GetButtonDown("Disc Release"));
 	}
 
 	const float ArrowAngle = 15.0f;

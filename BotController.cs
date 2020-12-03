@@ -11,6 +11,7 @@ public class BotController : MonoBehaviour
 	AimController AC;
 	RPGStats Stats;
 	Rigidbody Body;
+	PlayerController PC;
 
 	public float MaxThrowingDelay;
 	public float MaxMovingDelay;
@@ -28,6 +29,7 @@ public class BotController : MonoBehaviour
 		Stats = GetComponent<RPGStats>();
 		PV = GetComponent<PhotonView>();
 		AC = GetComponent<AimController>();
+		PC = GetComponent<PlayerController>();
 		Mover = GetComponent<PlayerController>();
 	}
 
@@ -43,7 +45,7 @@ public class BotController : MonoBehaviour
 				if (Random.Range(0.0f, 1.0f) < EndZoneProbability)
 				{
 					BoxCollider endZone = FrisbeeGame.Instance.GetGoalZone(status == FrisbeeGame.TeamStatus.Offence ? AC.Team : (1 - AC.Team));
-					Debug.DrawLine(transform.position, endZone.bounds.center, Color.green, 3.0f);
+					//Debug.DrawLine(transform.position, endZone.bounds.center, Color.green, 3.0f);
 					return new Vector3(Random.Range(endZone.bounds.min.x, endZone.bounds.max.x), 0.0f, Random.Range(endZone.bounds.min.z, endZone.bounds.max.z));
 				}
 				break;
@@ -116,6 +118,11 @@ public class BotController : MonoBehaviour
 
 	void UpdateDiscThrow()
 	{
+		if (CurrentState != BotState.HOLD_DISC)
+		{
+			PV.RPC("RPC_ChangeState", RpcTarget.All, BotState.HOLD_DISC, transform.position);
+		}
+
 		CurrentThrowingDelay += Time.deltaTime;
 
 		if (CurrentThrowingDelay > MaxThrowingDelay)
@@ -130,12 +137,33 @@ public class BotController : MonoBehaviour
 		}
 	}
 
+	enum BotState
+	{
+		IDLE,
+		HOLD_DISC,
+		MOVE,
+		PICKUP_DISC,
+		CHASE,
+	}
+
+	BotState CurrentState = BotState.IDLE;
+
 	bool UpdateIfDiscOnTheGround()
 	{
 		GameObject discOnGround = FindDiscOnGround();
 		if (discOnGround != null)
 		{
-			NextTarget = discOnGround.transform.position;
+			Vector3 discTarget = discOnGround.transform.position;
+
+			if (CurrentState != BotState.PICKUP_DISC)
+			{
+				PV.RPC("RPC_ChangeState", RpcTarget.All, BotState.PICKUP_DISC, discTarget);
+			}
+			else
+			{
+				NextTarget = discTarget;
+			}
+
 			return true;
 		}
 		return false;
@@ -150,13 +178,30 @@ public class BotController : MonoBehaviour
 			Vector3 targetPos = disc.CurrentTarget.transform.position;
 			Vector3 interceptPos = Vector3.Lerp(disc.transform.position, targetPos, 0.85f);
 
-			NextTarget = new Vector3(interceptPos.x, transform.position.y, interceptPos.z);
+			Vector3 chaseTarget = new Vector3(interceptPos.x, transform.position.y, interceptPos.z);
+
+			if (CurrentState != BotState.CHASE)
+			{
+				PV.RPC("RPC_ChangeState", RpcTarget.All, BotState.CHASE, chaseTarget);
+			}
+			else
+			{
+				NextTarget = chaseTarget;
+			}
+			
 			return true;
 		}
 		return false;
 	}
 
 	public bool DisableMovement;
+
+	[PunRPC]
+	void RPC_ChangeState(BotState state, Vector3 target)
+	{
+		CurrentState = state;
+		NextTarget = target;
+	}
 
 	void SelectNextTarget()
 	{
@@ -168,7 +213,7 @@ public class BotController : MonoBehaviour
 			target = GetNextRandomPoint();
 		} while (Vector3.Distance(target, NextTarget) < 5.0f);
 
-		NextTarget = target;
+		PV.RPC("RPC_ChangeState", RpcTarget.All, BotState.MOVE, target);
 	}
 
 	void Update()
@@ -193,18 +238,36 @@ public class BotController : MonoBehaviour
 					if (CurrentMovingDelay > MaxMovingDelay)
 					{
 						CurrentMovingDelay = 0.0f;
-
 						SelectNextTarget();
 					}
 				}
 			}
-		}
 
-		if (AC.Disc == null && NextTarget != Vector3.zero)
-		{
-			MoveTo(NextTarget);
+			if (AC.Disc == null && NextTarget != Vector3.zero)
+			{
+				bool hasReachedDestination = MoveTo(NextTarget, Time.deltaTime);
+				if (hasReachedDestination && IsReceivingDisc())
+					SelectNextTarget();
+			}
 		}
     }
+
+	const float CloseProximityDistance = 1.0f;
+
+	void FixedUpdate()
+	{
+		if (!PV.IsMine)
+		{
+			if (CurrentState == BotState.MOVE && Vector3.Distance(transform.position, NextTarget) < CloseProximityDistance)
+			{
+				MoveTo(NextTarget, Time.fixedDeltaTime);
+			}
+			else
+			{
+				PC.UpdateNetwork();
+			}
+		}
+	}
 
 	bool IsReceivingDisc()
 	{
@@ -220,25 +283,21 @@ public class BotController : MonoBehaviour
 		return false;
 	}
 
-	public void MoveTo(Vector3 target)
+	public bool MoveTo(Vector3 target, float deltaTime)
 	{
-		Debug.DrawLine(transform.position, target, Color.red);
+		//Debug.DrawLine(transform.position, target, Color.red);
 
-		//if (CanMove)
-		{
-			Vector3 direction = target - transform.position;
-			float dist = direction.magnitude;
+		Vector3 direction = target - transform.position;
+		float dist = direction.magnitude;
 
-			direction.Normalize();
+		direction.Normalize();
 
-			float maxSpeed = Stats.CurrentStats.MoveSpeed * Stats.CurrentStats.MoveSpeedBurstMultiplier;
+		float maxSpeed = Stats.CurrentStats.MoveSpeed * Stats.CurrentStats.MoveSpeedBurstMultiplier;
 
-			Vector3 velocity = direction * Mathf.Min(maxSpeed, dist / Time.deltaTime);
-			Body.velocity = velocity;
+		Vector3 velocity = direction * Mathf.Min(maxSpeed, dist / deltaTime);
+		Body.velocity = velocity;
 
-			bool hasReachedDestination = maxSpeed >= (dist / Time.deltaTime);
-			if (hasReachedDestination && IsReceivingDisc())
-				SelectNextTarget();
-		}
+		bool hasReachedDestination = maxSpeed >= (dist / deltaTime);
+		return hasReachedDestination;
 	}
 }

@@ -21,6 +21,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 	public class NetworkTransform
 	{
 		public Vector3 Position;
+		public Vector3 PredictedPosition;
 		public Quaternion Rotation;
 		public Vector3 Velocity;
 	}
@@ -29,8 +30,9 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 	[Serializable]
 	public class NetworkSettings
 	{
-		public float LerpRatio = 0.2f;
 		public float TeleportRadius = 2.0f;
+		public float MaxRotationSpeed = 90.0f;
+		public float MaxPredictionPullSpeed = 1.0f;
 	}
 	public NetworkSettings NetSettings;
 
@@ -189,16 +191,14 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		}
 	}
 
-	void UpdateNetwork()
+	public void UpdateNetwork()
 	{
 		if (!IsMine && NetTransform != null)
 		{
-
 			if (Vector3.Distance(transform.position, NetTransform.Position) < NetSettings.TeleportRadius)
 			{
-				float smoothRatio =  NetSettings.LerpRatio;
-				transform.position = Vector3.Lerp(transform.position, NetTransform.Position, smoothRatio);
-				transform.rotation = Quaternion.Lerp(transform.rotation, NetTransform.Rotation, smoothRatio);
+				transform.position = Vector3.MoveTowards(transform.position, NetTransform.PredictedPosition, Time.fixedDeltaTime * NetSettings.MaxPredictionPullSpeed);
+				transform.rotation = Quaternion.RotateTowards(transform.rotation, NetTransform.Rotation, Time.fixedDeltaTime * NetSettings.MaxRotationSpeed);
 			}
 			else
 			{
@@ -206,7 +206,6 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 				transform.rotation = NetTransform.Rotation;
 			}
 			Body.velocity = NetTransform.Velocity;
-			Debug.DrawLine(transform.position, NetTransform.Position, Color.red);
 		}
 	}
 
@@ -253,8 +252,6 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 	void Update()
     {
-		UpdateNetwork();
-
 		Vector3 inputVelocity = new Vector3(0, 0, 0);
 
 		if (IsMine && GetComponent<BotController>() == null && FrisbeeGame.Instance.CanProcessKeyboard && !CameraController.IsFreeCamEnabled)
@@ -363,6 +360,11 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		{
 			Body.constraints = RigidbodyConstraints.FreezeRotation;
 		}
+
+		if (!PV.IsMine && NetTransform != null)
+		{
+			Debug.DrawLine(NetTransform.Position, NetTransform.PredictedPosition, Color.cyan);
+		}
 	}
 
 	void OnDrawGizmos()
@@ -383,6 +385,9 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 	
 	void FixedUpdate()
 	{
+		if (!IsBot)
+			UpdateNetwork();
+
 		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) && IsMine && !AC.IsObserver)
 		{
 			// Chack Max Height
@@ -518,6 +523,9 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 			NetTransform.Position = (Vector3)stream.ReceiveNext();
 			NetTransform.Rotation = (Quaternion)stream.ReceiveNext();
 			NetTransform.Velocity = (Vector3)stream.ReceiveNext();
+
+			float delay = Mathf.Abs((float)(PhotonNetwork.Time - info.SentServerTime));
+			NetTransform.PredictedPosition = NetTransform.Position + NetTransform.Velocity * delay;
 		}
 	}
 

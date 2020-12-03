@@ -35,7 +35,7 @@ public class DiscController : MonoBehaviour
 		const float FlatAngle = 10.0f;
 		const float CurvedAngle = 20.0f;
 
-		public void Calc(Vector3 from, Vector3 to, Vector3 direction)
+		public void Calc(Vector3 from, Vector3 to, Vector3 direction, float networkDelay)
 		{
 			Origin = from;
 
@@ -69,6 +69,12 @@ public class DiscController : MonoBehaviour
 
 			//ThrowSpeed = linearSpeed * DiscVelocity;
 			Speed = Mathf.Lerp(1.0f, linearSpeed, CurveSpeedSmootStep) * DiscVelocity;
+
+			// Correction for lat - increasing speed to compensate the lag
+			if ((networkDelay > 0.001f) && (distance > 2.0f * networkDelay * Speed))
+			{
+				Speed *= distance / (distance - networkDelay * Speed);
+			}
 
 			Amplitude = Mathf.Sqrt(1.0f - linearSpeed * linearSpeed) / linearSpeed;
 		}
@@ -110,12 +116,18 @@ public class DiscController : MonoBehaviour
 	{
 		IDLE,
 		FLYING,
+		IN_HANDS_PENDING,
 		IN_HANDS,
 	}
 
 	DiscState State = DiscState.IDLE;
+	int StateChangedTimestamp = -1;
 	public DiscState CurrentState { get { return State; } }
-
+	void SetState(DiscState state, int serverTimestamp)
+	{
+		State = state;
+		StateChangedTimestamp = serverTimestamp;
+	}
 
 	// Start is called before the first frame update
 	void Awake()
@@ -135,7 +147,7 @@ public class DiscController : MonoBehaviour
 	}
 
 	[PunRPC]
-	private void RPC_Throw(int playerViewID, int targetViewID, Vector3 direction, bool enableTrail)
+	private void RPC_Throw(int playerViewID, int targetViewID, Vector3 direction, bool enableTrail, PhotonMessageInfo info)
 	{
 		PhotonView playerView = PhotonView.Find(playerViewID);
 		PhotonView targetView = PhotonView.Find(targetViewID);
@@ -143,7 +155,7 @@ public class DiscController : MonoBehaviour
 		if (playerView == null || targetView == null)
 			return;
 
-		State = DiscState.FLYING;
+		SetState(DiscState.FLYING, info.SentServerTimestamp);
 
 		CurrentThrower = playerView.gameObject;
 		CurrentPlayer = playerView.gameObject;
@@ -152,10 +164,12 @@ public class DiscController : MonoBehaviour
 		Vector3 throwOrigin = GetAdjustedTargetPosition(CurrentPlayer.transform.position);
 		Vector3 targetOrigin = GetAdjustedTargetPosition(CurrentTarget.transform.position);
 
+		// Calc lag
+		float networkDelay = Mathf.Abs((float)(PhotonNetwork.Time - info.SentServerTime));
 
-		Throw.Calc(throwOrigin, targetOrigin, direction);
+		Throw.Calc(throwOrigin, targetOrigin, direction, networkDelay);
 
-		Debug.DrawLine(throwOrigin, throwOrigin + direction * 3.0f, Color.blue, 3.0f);
+		//Debug.DrawLine(throwOrigin, throwOrigin + direction * 3.0f, Color.blue, 3.0f);
 
 		CurrentFlyingTime = 0.0f;
 
@@ -179,7 +193,7 @@ public class DiscController : MonoBehaviour
 	public List<Vector3> CalcTrajectory(Vector3 from, Vector3 to, Vector3 dir, float ratioStart, float ratioFinish, int numSegments)
 	{
 		ThrowParams throwParams = new ThrowParams();
-		throwParams.Calc(from, to, dir);
+		throwParams.Calc(from, to, dir, 0.0f);
 
 		float totalTime = (to - from).magnitude / throwParams.Speed;
 
@@ -202,14 +216,14 @@ public class DiscController : MonoBehaviour
 	}
 
 	[PunRPC]
-	public void RPC_Drop(int playerViewID, int teamLock)
+	public void RPC_Drop(int playerViewID, int teamLock, PhotonMessageInfo info)
 	{
 		PhotonView playerView = PhotonView.Find(playerViewID);
 
 		if (playerView == null)
 			return;
 
-		State = DiscState.IDLE;
+		SetState(DiscState.IDLE, info.SentServerTimestamp);
 		TeamLock = teamLock;
 		Trail.SetActive(false);
 
@@ -245,26 +259,28 @@ public class DiscController : MonoBehaviour
 		return transform.Find("Bip001/Bip001 Pelvis/Bip001 Spine/Bip001 R Clavicle/Bip001 R UpperArm/Bip001 R Forearm/Bip001 R Hand/R_hand_container");
 	}
 
-	public void CmdCatch(GameObject player)
+	public void CmdTryCatch(GameObject player)
 	{
-		int playerViewID = player.GetComponent<PhotonView>().ViewID;
-		RPC_Catch(playerViewID);
-		PV.RPC("RPC_Catch", RpcTarget.Others, player.GetComponent<PhotonView>().ViewID);
+		PhotonView targetPV = player.GetComponent<PhotonView>();
+
+		// Visual catch straight away, will be corrected by server if needed
+		SetState(DiscState.IN_HANDS_PENDING, PhotonNetwork.ServerTimestamp);
+		OnVisualCatch(player);
+
+		// Send a bid for catch
+		PV.RPC("RPC_TryCatch", RpcTarget.MasterClient, targetPV.ViewID);
 	}
 
-	[PunRPC]
-	public void RPC_Catch(int playerViewID)
+	public void CmdCatch(GameObject player)
 	{
-		PhotonView playerView = PhotonView.Find(playerViewID);
-		if (playerView == null)
-		{
-			Debug.LogError("Can't find Player: " + playerViewID);
-			return;
-		}
+		PhotonView targetPV = player.GetComponent<PhotonView>();
 
-		GameObject player = playerView.gameObject;
+		// Send a bid for catch
+		PV.RPC("RPC_ConfirmCatch", RpcTarget.All, targetPV.ViewID);
+	}
 
-		State = DiscState.IN_HANDS;
+	public bool OnVisualCatch(GameObject player)
+	{
 		TeamLock = -1;
 		CurrentPlayer = player;
 		CurrentTarget = null;
@@ -279,12 +295,93 @@ public class DiscController : MonoBehaviour
 
 			Reset();
 
-			player.GetComponent<AimController>().OnCatch(gameObject);
+			return true;
 		}
+
+		return false;
+	}
+
+	Dictionary<int, HashSet<Player>> CurrentBids = new Dictionary<int, HashSet<Player>>();
+	double FirstBidTime = 0.0;
+
+	const float MaxBidDelaySec = 0.5f;
+
+	void TryResolveDiscPossesion()
+	{
+		if (CurrentBids.Count == 0)
+			return;
+
+		int maxBidID = -1;
+		int maxBidCount = -1;
+		int totalBidCount = 0;
+
+		foreach (var pair in CurrentBids)
+		{
+			if (pair.Value.Count > maxBidCount)
+			{
+				maxBidCount = pair.Value.Count;
+				maxBidID = pair.Key;
+			}
+			totalBidCount += pair.Value.Count;
+		}
+
+		if ((maxBidCount > PhotonNetwork.PlayerList.Length / 2) || 
+			(totalBidCount == PhotonNetwork.PlayerList.Length) || 
+			(Mathf.Abs((float)(FirstBidTime - PhotonNetwork.Time)) > MaxBidDelaySec))
+		{
+			PV.RPC("RPC_ConfirmCatch", RpcTarget.All, maxBidID);
+			CurrentBids.Clear();
+			FirstBidTime = 0.0;
+		}
+	}
+
+	[PunRPC]
+	public void RPC_TryCatch(int playerViewID, PhotonMessageInfo info)
+	{
+		if (CurrentState != DiscState.IN_HANDS)
+		{
+			if (CurrentBids.Count == -1)
+				FirstBidTime = info.SentServerTime;
+
+			HashSet<Player> players = null;
+			if (!CurrentBids.TryGetValue(playerViewID, out players))
+			{
+				players = new HashSet<Player>();
+				CurrentBids.Add(playerViewID, players);
+			}
+			players.Add(info.Sender);
+
+			TryResolveDiscPossesion();
+		}
+	}
+
+	[PunRPC]
+	public void RPC_ConfirmCatch(int playerViewID, PhotonMessageInfo info)
+	{
+		PhotonView playerView = PhotonView.Find(playerViewID);
+		if (playerView == null)
+		{
+			Debug.LogError("Can't find Player: " + playerViewID);
+			return;
+		}
+
+		// Visual catch straight away, will be corrected by server if needed
+		SetState(DiscState.IN_HANDS, info.SentServerTimestamp);
+		OnVisualCatch(playerView.gameObject);
+
+		playerView.gameObject.GetComponent<AimController>().OnCatch(gameObject);
 	}
 
 	const float DiscSmoothRatio = 0.3f;
 	const float DiscSmoothDistance = 4.0f;
+
+	private void Update()
+	{
+		if (PhotonNetwork.IsMasterClient)
+		{
+			TryResolveDiscPossesion();
+		}
+	}
 
 	// Update is called once per frame
 	void FixedUpdate()
@@ -310,7 +407,7 @@ public class DiscController : MonoBehaviour
 		}
 
 		float minY = GetComponent<MeshCollider>().bounds.min.y;
-		if (minY < 0.0f && State == DiscState.IDLE)
+		if (minY < 0.0f)
 		{
 			transform.position = new Vector3(transform.position.x, transform.position.y - minY, transform.position.z);
 		}
@@ -320,7 +417,6 @@ public class DiscController : MonoBehaviour
 	{
 		transform.localPosition = new Vector3(0, 0, 0.28f);
 		transform.localRotation = Quaternion.Euler(new Vector3(0f, 0f, 0f));
-
 		Velocity = Vector3.zero;
 		//RB.velocity = Vector3.zero;
 		//RB.angularVelocity = new Vector3(0f, 0f, 0f);
@@ -328,9 +424,9 @@ public class DiscController : MonoBehaviour
 
 	void OnTriggerEnter(Collider collider)
 	{
-		if (PhotonNetwork.IsMasterClient)
+		//if (PhotonNetwork.IsMasterClient)
 		{
-			if (State != DiscState.IN_HANDS)
+			if (CurrentState == DiscState.FLYING || CurrentState == DiscState.IDLE)
 			{
 				if (/*CurrentPlayer != collider.gameObject &&*/ collider.tag == "Catcher")
 				{
@@ -338,7 +434,7 @@ public class DiscController : MonoBehaviour
 					int team = player.GetComponent<AimController>().Team;
 
 					if (TeamLock == -1 || TeamLock == team)
-						CmdCatch(player);
+						CmdTryCatch(player);
 				}
 			}
 		}
@@ -347,13 +443,13 @@ public class DiscController : MonoBehaviour
 	public bool CanPickup(GameObject player)
 	{
 		int team = player.GetComponent<AimController>().Team;
-		return State == DiscState.IDLE && (TeamLock == -1 || TeamLock == team);
+		return CurrentState == DiscState.IDLE && (TeamLock == -1 || TeamLock == team);
 	}
 
 	public bool CanIntercept(GameObject player)
 	{
 		int team = player.GetComponent<AimController>().Team;
-		return State == DiscState.FLYING && TeamPossession != team;
+		return CurrentState == DiscState.FLYING && TeamPossession != team;
 	}
 
 	public const float DoubleTeamCatchRadiusMultiplier = 0.5f;
@@ -362,7 +458,7 @@ public class DiscController : MonoBehaviour
 
 	public float CalculateCatchRadius(Vector3 pos)
 	{
-		if (State == DiscState.FLYING && CurrentPlayer != null && CurrentTarget != null)
+		if (CurrentState == DiscState.FLYING && CurrentPlayer != null && CurrentTarget != null)
 		{
 			float distA = (pos - CurrentPlayer.transform.position).magnitude;
 			float distB = (pos - CurrentTarget.transform.position).magnitude;
@@ -393,7 +489,7 @@ public class DiscController : MonoBehaviour
 
 	void OnDestroy()
 	{
-		if (CurrentState == DiscState.IN_HANDS)
+		if (CurrentState == DiscState.IN_HANDS || CurrentState == DiscState.IN_HANDS_PENDING)
 		{
 			if (CurrentPlayer != null)
 			{
@@ -404,9 +500,9 @@ public class DiscController : MonoBehaviour
 
 	public void ForceUpdate(Player player)
 	{
-		if (State == DiscState.IN_HANDS)
+		if (CurrentState == DiscState.IN_HANDS)
 		{
-			PV.RPC("RPC_Catch", player, CurrentPlayer.GetComponent<PhotonView>().ViewID);
+			PV.RPC("RPC_ConfirmCatch", player, CurrentPlayer.GetComponent<PhotonView>().ViewID);
 		}
 	}
 }
