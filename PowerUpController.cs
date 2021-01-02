@@ -23,25 +23,7 @@ public class PowerUpController : MonoBehaviour
 
 	public PowerUpItem[] Items;
 
-	private PowerUp currentPowerUp = PowerUp.None;
-	public PowerUp CurrentPowerUp
-	{
-		get
-		{
-			return currentPowerUp;
-		}
-		set
-		{
-			if (currentPowerUp != value)
-			{
-				foreach (PowerUpItem item in Items)
-				{
-					item.VFX.SetActive(item.Name == value);
-				}
-				currentPowerUp = value;
-			}
-		}
-	}
+	private PowerUpResult currentPowerUp = new PowerUpResult(PowerUp.None);
 
 	AimController AC;
 
@@ -50,30 +32,90 @@ public class PowerUpController : MonoBehaviour
 		AC = GetComponent<AimController>();
 	}
 
-	PowerUp CalcPowerUp()
+	public struct PowerUpResult
+	{
+		public PowerUp Name;
+		public float Scale;
+
+		public PowerUpResult(PowerUp name, float scale = 1.0f)
+		{
+			Name = name;
+			Scale = scale;
+		}
+
+		public override bool Equals(object obj)
+		{
+			if (!(obj is PowerUpResult))
+				return false;
+
+			PowerUpResult other = (PowerUpResult)obj;
+			return Name == other.Name && Mathf.Approximately(Scale, other.Scale);
+		}
+
+		public static bool operator==(PowerUpResult p1, PowerUpResult p2)
+		{
+			return p1.Equals(p2);
+		}
+
+		public static bool operator!=(PowerUpResult p1, PowerUpResult p2)
+		{
+			return !p1.Equals(p2);
+		}
+	}
+
+
+	PowerUpResult CalcPowerUp()
 	{
 		if (AC.HasDiscInHands)
 		{
-			if (AC.HasTrippleTeam)
-				return PowerUp.DiscUp2;
-			else if (AC.HasDoubleTeam)
-				return PowerUp.DiscUp1;
+			float doubleTeam = AC.DoubleTeamValue;
+			if (doubleTeam > Mathf.Epsilon)
+			{
+				return new PowerUpResult(doubleTeam > 0.5f ? PowerUp.DiscUp2 : PowerUp.DiscUp1);
+			}
 		}
 		else
 		{
 			foreach (GameObject opponent in AC.OpponentsInRange)
 			{
 				AimController oppoentAC = opponent.GetComponent<AimController>();
-				if (oppoentAC.HasDiscInHands && oppoentAC.HasDoubleTeam)
-					return PowerUp.Warning;
+				if (oppoentAC.HasDiscInHands)
+				{
+					float doubleTeamWarning = oppoentAC.DoubleTeamWarningValue;
+					if (doubleTeamWarning > Mathf.Epsilon)
+					{
+						return new PowerUpResult(PowerUp.Warning, Mathf.Sqrt(doubleTeamWarning));
+					}
+				}
+					
 			}
 		}
 
-		return PowerUp.None;
+		return new PowerUpResult(PowerUp.None);
 	}
 
 	public void Update()
 	{
-		CurrentPowerUp = CalcPowerUp();
+		PowerUpResult nextPowerUp = CalcPowerUp();
+
+		if (currentPowerUp != nextPowerUp)
+		{
+			foreach (PowerUpItem item in Items)
+			{
+				if (item != null && item.VFX != null)
+				{
+					if (item.Name == nextPowerUp.Name)
+					{
+						item.VFX.SetActive(true);
+						item.VFX.transform.localScale = Vector3.one * nextPowerUp.Scale;
+					}
+					else
+					{
+						item.VFX.SetActive(false);
+					}
+				}
+			}
+			currentPowerUp = nextPowerUp;
+		}
 	}
 }

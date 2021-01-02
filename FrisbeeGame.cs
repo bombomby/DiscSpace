@@ -52,7 +52,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	public static bool IsInState(GameState state)
 	{
-		return (Instance != null) && (Instance.CurrentState & state) != 0 && Instance.CurrentStateElapsed > Time.deltaTime;
+		return (Instance != null) && (Instance.CurrentState & state) != 0 /*&& Instance.CurrentStateElapsed > Time.deltaTime*/;
 	}
 
 	public int SelectTeamForNewPlayer()
@@ -171,12 +171,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 		if (to != null)
 		{
-			to.GetComponent<PlayerStats>().AddScore();
+			to.GetComponent<PlayerStats>().AddGlobal(PlayerStats.Stat.Goal);
 		}
 
 		if (from != null && to != null && from.GetComponent<AimController>().Team == to.GetComponent<AimController>().Team)
 		{
-			from.GetComponent<PlayerStats>().AddAssist();
+			from.GetComponent<PlayerStats>().AddGlobal(PlayerStats.Stat.Assist);
 		}
 	}
 
@@ -223,7 +223,19 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 	void OnGameFinished()
 	{
+		GiveReward();
 		UIWindow.GetWindow(UIWindowID.GameFinished).Show();
+	}
+
+	void GiveReward()
+	{
+		GameObject player = FrisbeeGame.Instance.MainPlayer;
+		if (player != null)
+		{
+			DBStats dbStats = player.GetComponent<DBStats>();
+			PlayerStats stats = player.GetComponent<PlayerStats>();
+			dbStats.Reward(stats);
+		}
 	}
 
 	[PunRPC]
@@ -292,7 +304,19 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		get { return !MenuManager.Instance.HasOpenWindow(UIWindow.Interaction.Mouse); }
 	}
 
+	public enum InterpolationMode
+	{
+		Predict,
+		Smooth,
+		Hybrid,
+	}
 
+	InterpolationMode networkInterpolation = InterpolationMode.Hybrid;
+	public InterpolationMode NetworkInterpolation
+	{
+		get { return networkInterpolation; }
+		set { networkInterpolation = value; }
+	}
 
 	public int TotalScore
 	{
@@ -439,6 +463,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 	// Update is called once per frame
 	void Update()
 	{
+
+		if (Input.GetKeyDown(KeyCode.F4))
+		{
+			NetworkInterpolation = (InterpolationMode)(((int)NetworkInterpolation + 1) % Enum.GetValues(typeof(InterpolationMode)).Length);
+		}
+
 		if (PhotonNetwork.IsMasterClient)
 		{
 			UpdateState();
@@ -705,6 +735,7 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 		if (MainPlayer != null)
 		{
 			MainPlayer.GetComponent<RPGStats>().CurrentStats.Stamina = MainPlayer.GetComponent<RPGStats>().CurrentStats.MaxStamina;
+			MainPlayer.GetComponent<PlayerStats>().AddGlobal(PlayerStats.Stat.Barrel);
 		}
 	}
 
@@ -843,12 +874,12 @@ public class FrisbeeGame : MonoBehaviourPunCallbacks
 
 		foreach (AimController ac in aimControllers)
 		{
-			float radius = DiscController.MaxCatchRadius;
+			float radius = 0.0f; // DiscController.MinCatchRadius;
 
 			foreach (DiscController disc in discs)
 			{
-				float curRadius = disc.CalculateCatchRadius(ac.transform.position);
-				radius = Mathf.Min(radius, curRadius);
+				float curRadius = disc.CalculateCatchRadius(ac.gameObject);
+				radius = Mathf.Max(radius, curRadius);
 			}
 
 			if (ac.gameObject.GetComponent<PlayerController>().IsLayingOut)

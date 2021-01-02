@@ -21,6 +21,12 @@ public class DiscController : MonoBehaviour
 
 	public GameObject Trail;
 
+	public bool EnableTrail
+	{
+		get { return Trail.activeSelf; }
+		set { Trail.SetActive(value); }
+	}
+
 	struct ThrowParams
 	{
 		public Vector3 Origin;
@@ -29,8 +35,8 @@ public class DiscController : MonoBehaviour
 		public float Amplitude;
 		public float Speed;
 
-		public const float CurveSpeedSmootStep = 0.5f;
-		public const float DiscVelocity = 11.0f;
+		public const float CurveSpeedSmootStep = 0.8f;
+		public const float DiscVelocity = 14.0f;
 
 		const float FlatAngle = 10.0f;
 		const float CurvedAngle = 20.0f;
@@ -70,7 +76,7 @@ public class DiscController : MonoBehaviour
 			//ThrowSpeed = linearSpeed * DiscVelocity;
 			Speed = Mathf.Lerp(1.0f, linearSpeed, CurveSpeedSmootStep) * DiscVelocity;
 
-			// Correction for lat - increasing speed to compensate the lag
+			// Correction for lag - increasing speed to compensate the lag
 			if ((networkDelay > 0.001f) && (distance > 2.0f * networkDelay * Speed))
 			{
 				Speed *= distance / (distance - networkDelay * Speed);
@@ -109,8 +115,8 @@ public class DiscController : MonoBehaviour
 
 	float CurrentFlyingTime;
 
-
 	const float DiscHeight = 0.75f;
+	const float DiscHeightOverhead = 1.25f;
 
 	public enum DiscState
 	{
@@ -141,9 +147,9 @@ public class DiscController : MonoBehaviour
 		PV.RPC("RPC_Throw", RpcTarget.All, player.GetComponent<PhotonView>().ViewID, target.GetComponent<PhotonView>().ViewID, direction, enableTrail);
 	}
 
-	Vector3 GetAdjustedTargetPosition(Vector3 position)
+	Vector3 GetAdjustedTargetPosition(Vector3 position, bool isOverhead)
 	{
-		return new Vector3(position.x, Mathf.Max(position.y, DiscHeight), position.z);
+		return new Vector3(position.x, Mathf.Max(position.y, isOverhead ? DiscHeightOverhead : DiscHeight), position.z);
 	}
 
 	[PunRPC]
@@ -161,11 +167,11 @@ public class DiscController : MonoBehaviour
 		CurrentPlayer = playerView.gameObject;
 		CurrentTarget = targetView.gameObject;
 
-		Vector3 throwOrigin = GetAdjustedTargetPosition(CurrentPlayer.transform.position);
-		Vector3 targetOrigin = GetAdjustedTargetPosition(CurrentTarget.transform.position);
+		Vector3 throwOrigin = GetAdjustedTargetPosition(CurrentPlayer.transform.position, enableTrail);
+		Vector3 targetOrigin = GetAdjustedTargetPosition(CurrentTarget.transform.position, false);
 
 		// Calc lag
-		float networkDelay = Mathf.Abs((float)(PhotonNetwork.Time - info.SentServerTime));
+		float networkDelay = Mathf.Max((float)(PhotonNetwork.Time - info.SentServerTime), 0.0f);
 
 		Throw.Calc(throwOrigin, targetOrigin, direction, networkDelay);
 
@@ -184,8 +190,15 @@ public class DiscController : MonoBehaviour
 
 		CurrentThrower.GetComponent<AimController>().OnThrow(CurrentTarget);
 
-		if (enableTrail)
-			Trail.SetActive(true);
+		if (CurrentThrower != null)
+		{
+			PlayerStats stats = CurrentThrower.GetComponent<PlayerStats>();
+			stats.AddLocal(PlayerStats.Stat.Throw);
+			if (enableTrail)
+				stats.AddLocal(PlayerStats.Stat.Hammer);
+		}
+
+		EnableTrail = enableTrail;
 
 		//CurrentThrower.GetComponent<PlayerController>().SetAnimationTrigger("Throw");
 	}
@@ -225,7 +238,7 @@ public class DiscController : MonoBehaviour
 
 		SetState(DiscState.IDLE, info.SentServerTimestamp);
 		TeamLock = teamLock;
-		Trail.SetActive(false);
+		EnableTrail = false;
 
 		CurrentThrower = playerView.gameObject;
 		CurrentPlayer = playerView.gameObject;
@@ -265,7 +278,7 @@ public class DiscController : MonoBehaviour
 
 		// Visual catch straight away, will be corrected by server if needed
 		SetState(DiscState.IN_HANDS_PENDING, PhotonNetwork.ServerTimestamp);
-		OnVisualCatch(player);
+		//OnVisualCatch(player);
 
 		// Send a bid for catch
 		PV.RPC("RPC_TryCatch", RpcTarget.MasterClient, targetPV.ViewID);
@@ -284,7 +297,7 @@ public class DiscController : MonoBehaviour
 		TeamLock = -1;
 		CurrentPlayer = player;
 		CurrentTarget = null;
-		Trail.SetActive(false);
+		EnableTrail = false;
 
 		Transform hand = FindHand(player.GetComponent<PlayerController>().Player.transform);
 		if (hand != null)
@@ -302,9 +315,9 @@ public class DiscController : MonoBehaviour
 	}
 
 	Dictionary<int, HashSet<Player>> CurrentBids = new Dictionary<int, HashSet<Player>>();
-	double FirstBidTime = 0.0;
+	float FirstBidTime = 0.0f;
 
-	const float MaxBidDelaySec = 0.5f;
+	const float MaxBidDelaySec = 0.35f;
 
 	void TryResolveDiscPossesion()
 	{
@@ -327,11 +340,11 @@ public class DiscController : MonoBehaviour
 
 		if ((maxBidCount > PhotonNetwork.PlayerList.Length / 2) || 
 			(totalBidCount == PhotonNetwork.PlayerList.Length) || 
-			(Mathf.Abs((float)(FirstBidTime - PhotonNetwork.Time)) > MaxBidDelaySec))
+			(Mathf.Abs(FirstBidTime - Time.time) > MaxBidDelaySec))
 		{
 			PV.RPC("RPC_ConfirmCatch", RpcTarget.All, maxBidID);
 			CurrentBids.Clear();
-			FirstBidTime = 0.0;
+			FirstBidTime = 0.0f;
 		}
 	}
 
@@ -341,7 +354,7 @@ public class DiscController : MonoBehaviour
 		if (CurrentState != DiscState.IN_HANDS)
 		{
 			if (CurrentBids.Count == -1)
-				FirstBidTime = info.SentServerTime;
+				FirstBidTime = Time.time;
 
 			HashSet<Player> players = null;
 			if (!CurrentBids.TryGetValue(playerViewID, out players))
@@ -381,6 +394,11 @@ public class DiscController : MonoBehaviour
 		{
 			TryResolveDiscPossesion();
 		}
+
+		if (CurrentState == DiscState.IN_HANDS)
+		{
+			EnableTrail = CurrentPlayer.GetComponent<AimController>().DoubleTeamValue > Mathf.Epsilon;
+		}
 	}
 
 	// Update is called once per frame
@@ -388,7 +406,7 @@ public class DiscController : MonoBehaviour
 	{
 		if (CurrentPlayer != null && CurrentTarget != null)
 		{
-			Vector3 target = GetAdjustedTargetPosition(CurrentTarget.transform.position);
+			Vector3 target = GetAdjustedTargetPosition(CurrentTarget.transform.position, false);
 
 			CurrentFlyingTime += Time.fixedDeltaTime;
 
@@ -452,23 +470,29 @@ public class DiscController : MonoBehaviour
 		return CurrentState == DiscState.FLYING && TeamPossession != team;
 	}
 
-	public const float DoubleTeamCatchRadiusMultiplier = 0.5f;
-	public const float MinCatchRadius = 0.75f;
-	public const float MaxCatchRadius = 1.65f;
+	public const float MinCatchRadius = 0.65f;
+	public const float MaxCatchRadius = 1.4f;
+	public const float MaxCatchTime = 3.5f;
 
-	public float CalculateCatchRadius(Vector3 pos)
+
+	public float DiscInFlyTime
+	{
+		get
+		{
+			return CurrentState == DiscState.FLYING ? Mathf.Max(0.0f, (PhotonNetwork.ServerTimestamp - StateChangedTimestamp) * 0.001f) : 0.0f;
+		}
+	}
+
+	public float CalculateCatchRadius(GameObject obj)
 	{
 		if (CurrentState == DiscState.FLYING && CurrentPlayer != null && CurrentTarget != null)
 		{
-			float distA = (pos - CurrentPlayer.transform.position).magnitude;
-			float distB = (pos - CurrentTarget.transform.position).magnitude;
-
-			if (distA < AimController.StallOutRadius)
-				return MinCatchRadius;
+			float catchRadiusScaler = obj.GetComponent<RPGStats>().CurrentStats.CatchRadiusScaler;
 
 			// Calculating catch radius as a ratio between distance to the thrower and sum of distances to start/finish
 			// So players putting force deep on the side gets a slight distadvantage to the straight force
-			return Mathf.Lerp(MinCatchRadius, MaxCatchRadius, distA / (distA + distB));
+			float catchRadiusRatio = Mathf.Clamp(DiscInFlyTime / MaxCatchTime, 0.0f, 1.0f);
+			return Mathf.Lerp(MinCatchRadius, MaxCatchRadius, catchRadiusRatio) * catchRadiusScaler;
 		}
 		return MinCatchRadius;
 	}

@@ -6,6 +6,7 @@ public class PlayerBarsUI : MonoBehaviour
 {
 	public GameObject HealthBar;
 	public GameObject StaminaBar;
+	public GameObject ExperienceBar;
 
 	// Start is called before the first frame update
 	void Start()
@@ -28,6 +29,11 @@ public class PlayerBarsUI : MonoBehaviour
 			ResourceBar stamina = StaminaBar.GetComponent<ResourceBar>();
 			stamina.MaxValue = stats.CurrentStats.MaxStamina;
 			stamina.CurValue = stats.CurrentStats.Stamina;
+
+			ResourceBar experience = ExperienceBar.GetComponent<ResourceBar>();
+			DBStats dbStats = player.GetComponent<DBStats>();
+			experience.MaxValue = dbStats.NextLevelExperience - dbStats.CurrLevelExperience;
+			experience.CurValue = dbStats.Experience - dbStats.CurrLevelExperience;
 		}
 	}
 }

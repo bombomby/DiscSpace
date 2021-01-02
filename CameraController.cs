@@ -22,16 +22,16 @@ public class CameraController : MonoBehaviour
 
 	public UnityEvent CameraChanged;
 
+	Quaternion InitialRotation;
 
 	public class FreeCamera
 	{
-
-
 	}
 
 	private void Awake()
 	{
 		Controls = new PlayerInput();
+		InitialRotation = transform.rotation;
 	}
 
 
@@ -58,11 +58,25 @@ public class CameraController : MonoBehaviour
 	{
 		add
 		{
-			Camera.main.GetComponent<CameraController>().CinenematicModeChangedEvent += value;
+			if (Camera.main != null)
+			{
+				CameraController controller = Camera.main.GetComponent<CameraController>();
+				if (controller != null)
+				{
+					controller.CinenematicModeChangedEvent += value;
+				}
+			}
 		}
 		remove
 		{
-			Camera.main.GetComponent<CameraController>().CinenematicModeChangedEvent -= value;
+			if (Camera.main != null)
+			{
+				CameraController controller = Camera.main.GetComponent<CameraController>();
+				if (controller != null)
+				{
+					controller.CinenematicModeChangedEvent -= value;
+				}
+			}
 		}
 	}
 
@@ -109,13 +123,16 @@ public class CameraController : MonoBehaviour
 
 	void UpdateFreeCamera()
 	{
+		float turnSpeed = FreeCam.TurnSpeed * SettingsMenuUI.Instance.CameraSpeed;
+		float moveSpeed = FreeCam.MoveSpeed * SettingsMenuUI.Instance.FreeCameraSpeed;
+		float floatSpeed = FreeCam.FloatSpeed * SettingsMenuUI.Instance.FreeCameraSpeed;
+
 		float h = Input.GetAxis("Horizontal") + Input.GetAxis("Horizontal Movement");
 		float v = Input.GetAxis("Vertical") + Input.GetAxis("Vertical Movement");
-		Vector3 movement = transform.rotation * new Vector3(h, 0.0f, v) * FreeCam.MoveSpeed;
-		Vector3 altitude = new Vector3(0.0f, (Input.GetAxis("Disc Charge Trigger") + Input.GetAxis("Disc Charge")) * FreeCam.FloatSpeed, 0.0f);
-		transform.position = transform.position + new Vector3(movement.x, 0.0f, movement.z) + altitude;
+		Vector3 movement = transform.rotation * new Vector3(h, 0.0f, v) * moveSpeed;
+		Vector3 altitude = new Vector3(0.0f, (Input.GetAxis("Disc Charge Trigger") + Input.GetAxis("Disc Charge")) * floatSpeed, 0.0f);
 
-		float turnSpeed = FreeCam.TurnSpeed * SettingsMenuUI.Instance.CameraSpeed;
+		transform.position = transform.position + new Vector3(movement.x, 0.0f, movement.z) + altitude;
 
 		Vector3 camInput = GetCameraInput();
 		camInput *= turnSpeed * Time.deltaTime;
@@ -152,6 +169,10 @@ public class CameraController : MonoBehaviour
 		if (GameSettings.UseNewInputSystem ? GameSettings.Controls.Camera.SwitchCameraMode.triggered : Input.GetKeyDown(KeyCode.F1))
 		{
 			Mode = (CameraMode)(((int)Mode + 1) % Enum.GetValues(typeof(CameraMode)).Length);
+			if (Mode == CameraMode.GameCam)
+			{
+				transform.rotation = InitialRotation;
+			}
 		}
 
 		if (GameSettings.UseNewInputSystem ? GameSettings.Controls.Camera.ToggleCinematic.triggered : Input.GetKeyDown(KeyCode.F2))

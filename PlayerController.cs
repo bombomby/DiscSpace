@@ -22,6 +22,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 	{
 		public Vector3 Position;
 		public Vector3 PredictedPosition;
+		public Vector3 InterpolatedPosition;
 		public Quaternion Rotation;
 		public Vector3 Velocity;
 	}
@@ -30,9 +31,11 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 	[Serializable]
 	public class NetworkSettings
 	{
-		public float TeleportRadius = 2.0f;
+		public float LerpRatio = 0.1f;
+		public float TeleportRadius = 2.5f;
 		public float MaxRotationSpeed = 90.0f;
 		public float MaxPredictionPullSpeed = 1.0f;
+		public float MaxPredictionDistance = 1.25f;
 	}
 	public NetworkSettings NetSettings;
 
@@ -197,8 +200,26 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		{
 			if (Vector3.Distance(transform.position, NetTransform.Position) < NetSettings.TeleportRadius)
 			{
-				transform.position = Vector3.MoveTowards(transform.position, NetTransform.PredictedPosition, Time.fixedDeltaTime * NetSettings.MaxPredictionPullSpeed);
-				transform.rotation = Quaternion.RotateTowards(transform.rotation, NetTransform.Rotation, Time.fixedDeltaTime * NetSettings.MaxRotationSpeed);
+				float smoothRatio = NetSettings.LerpRatio;
+
+				switch (FrisbeeGame.Instance.NetworkInterpolation)
+				{
+					case FrisbeeGame.InterpolationMode.Smooth:
+						transform.position = Vector3.Lerp(transform.position, NetTransform.Position, smoothRatio);
+						transform.rotation = Quaternion.Lerp(transform.rotation, NetTransform.Rotation, smoothRatio);
+						break;
+
+					case FrisbeeGame.InterpolationMode.Predict:
+						transform.position = Vector3.MoveTowards(transform.position, NetTransform.PredictedPosition, Time.fixedDeltaTime * NetSettings.MaxPredictionPullSpeed);
+						transform.rotation = Quaternion.RotateTowards(transform.rotation, NetTransform.Rotation, Time.fixedDeltaTime * NetSettings.MaxRotationSpeed);
+						break;
+
+					case FrisbeeGame.InterpolationMode.Hybrid:
+						transform.position = Vector3.Lerp(transform.position, NetTransform.InterpolatedPosition, smoothRatio);
+						transform.rotation = Quaternion.Lerp(transform.rotation, NetTransform.Rotation, smoothRatio);
+						break;
+				}
+
 			}
 			else
 			{
@@ -236,6 +257,8 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 		SetAnimationTrigger("Layout");
 		Audio.OnAudioEvent(PlayerAudio.EventType.Jump);
+
+		GetComponent<PlayerStats>().AddLocal(PlayerStats.Stat.Layouts);
 	}
 
 	public void SetAnimationTrigger(string trigger)
@@ -249,6 +272,21 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		Stats.CurrentStats.Layout(gameObject);
 		PV.RPC("RPC_Layout", RpcTarget.All);
 	}
+
+	const float MinRotationAngle = 2.0f;
+
+	//float CalcDefenceRageMultiplier()
+	//{
+	//	if (AC.Team <= FrisbeeGame.NumPlayingTeams)
+	//	{
+	//		if (FrisbeeGame.Instance.GetTeamStatus(AC.Team) == FrisbeeGame.TeamStatus.Defence)
+	//		{
+	//			return 2.0f;
+	//		}
+	//	}
+
+	//	return 1.0f;
+	//}
 
 	void Update()
     {
@@ -285,7 +323,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 			if (movement.magnitude > 1.0f)
 				movement.Normalize();
 
-			inputVelocity = movement * Stats.CurrentStats.MoveSpeed;
+			inputVelocity = movement * Stats.CurrentStats.MoveSpeed /** CalcDefenceRageMultiplier()*/;
 
 			float burstMode = GameSettings.UseNewInputSystem ? GameSettings.Controls.Player.Sprint.ReadValue<float>() : Input.GetAxis("Sprint");
 
@@ -346,9 +384,10 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 			float angle = Vector3.Angle(transform.forward, desiredRotation * Vector3.forward);
 
-			if (angle > Mathf.Epsilon)
+			// Avoiding jitter
+			if (angle > MinRotationAngle)
 			{
-				transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation, Mathf.Min(1.0f, RotationSpeed * Time.deltaTime / angle));
+				transform.rotation = Quaternion.RotateTowards(transform.rotation, desiredRotation, RotationSpeed * Time.deltaTime);
 			}
 		}
 
@@ -363,7 +402,8 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 
 		if (!PV.IsMine && NetTransform != null)
 		{
-			Debug.DrawLine(NetTransform.Position, NetTransform.PredictedPosition, Color.cyan);
+			Debug.DrawLine(NetTransform.Position + Vector3.up * 0.05f, NetTransform.PredictedPosition + Vector3.up * 0.05f, Color.cyan);
+			Debug.DrawLine(NetTransform.Position, NetTransform.InterpolatedPosition, Color.red);
 		}
 	}
 
@@ -388,7 +428,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 		if (!IsBot)
 			UpdateNetwork();
 
-		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) && IsMine && !AC.IsObserver)
+		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game_Playing) /*&& IsMine && !AC.IsObserver*/)
 		{
 			// Chack Max Height
 			if (transform.position.y > GameHeightLimit)
@@ -400,6 +440,7 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 			Vector3 nextPos = currPos + Body.velocity * Time.fixedDeltaTime;
 
 			// Check Out-of-Bounds
+			if (!AC.IsObserver)
 			{
 				BoxCollider gameCollider = FrisbeeGame.Instance.GetTeamStatus(AC.Team) == FrisbeeGame.TeamStatus.Offence ? FrisbeeGame.Instance.ActiveBoundsOffence : FrisbeeGame.Instance.ActiveBoundsDefence;
 				Bounds area = new Bounds(gameCollider.center, gameCollider.size);
@@ -455,6 +496,8 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 					}
 				}
 			}
+
+			GameStats.AddLocal(PlayerStats.Stat.MoveDistance, Body.velocity.magnitude * Time.fixedDeltaTime);
 		}
 	}
 
@@ -524,8 +567,17 @@ public class PlayerController : MonoBehaviour, IPunInstantiateMagicCallback, IPu
 			NetTransform.Rotation = (Quaternion)stream.ReceiveNext();
 			NetTransform.Velocity = (Vector3)stream.ReceiveNext();
 
-			float delay = Mathf.Abs((float)(PhotonNetwork.Time - info.SentServerTime));
-			NetTransform.PredictedPosition = NetTransform.Position + NetTransform.Velocity * delay;
+			float delay = Mathf.Max((float)(PhotonNetwork.Time - info.SentServerTime), 0.0f);
+
+			Vector3 predictedShift = NetTransform.Velocity * delay;
+			NetTransform.InterpolatedPosition = NetTransform.Position + predictedShift;
+
+			if (predictedShift.magnitude > NetSettings.MaxPredictionDistance)
+			{
+				predictedShift = predictedShift.normalized * NetSettings.MaxPredictionDistance;
+			}
+
+			NetTransform.PredictedPosition = NetTransform.Position + predictedShift;
 		}
 	}
 

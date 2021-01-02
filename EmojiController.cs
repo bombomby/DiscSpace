@@ -26,6 +26,7 @@ public class EmojiController : MonoBehaviour
 	[PunRPC]
 	public void RPC_Play(string name)
 	{
+		GetComponent<PlayerStats>().AddLocal(PlayerStats.Stat.Emoji);
 		GameObject prefab = EmojiList.Find(o => o.name == name);
 		GameObject emoji = Instantiate(prefab, Slot.position, Quaternion.identity, Slot);
 	}

@@ -14,6 +14,50 @@ public class PlayerCustomization : MonoBehaviour
 		Female,
 	}
 
+	public string skinTone;
+	public string SkinTone
+	{
+		get { return skinTone; }
+		set
+		{
+			if (PV.IsSceneView)
+				RPC_SetSkin(Gender, value);
+			else
+				PV.RPC("RPC_SetSkin", RpcTarget.AllBuffered, Gender, value);
+		}
+	}
+
+	string[] headStyle = new string[2];
+	public string HeadStyle
+	{
+		get { return headStyle[(int)Gender]; }
+		set
+		{
+			if (PV.IsSceneView)
+				RPC_SetHead(Gender, value);
+			else
+				PV.RPC("RPC_SetHead", RpcTarget.AllBuffered, Gender, value);
+		}
+	}
+
+	string[] accessoryStyle = new string[2];
+	public string AccessoryStyle
+	{
+		get { return accessoryStyle[(int)Gender]; }
+		set
+		{
+			if (PV.IsSceneView)
+				RPC_SetAccessory(Gender, value);
+			else
+				PV.RPC("RPC_SetAccessory", RpcTarget.AllBuffered, Gender, value);
+		}
+	}
+
+	public CharacterCustomization CurrentCharacter
+	{
+		get { return Customization[(int)Gender]; }
+	}
+
 
 	private GenderType gender = GenderType.Male;
 	public GenderType Gender
@@ -69,6 +113,8 @@ public class PlayerCustomization : MonoBehaviour
 	{
 		gender = value;
 		UpdateOutfit();
+		RPC_SetSkin(Gender, SkinTone);
+		RPC_SetAccessory(Gender, AccessoryStyle);
 	}
 
 	public GameObject[] Characters;
@@ -83,15 +129,15 @@ public class PlayerCustomization : MonoBehaviour
 	[PunRPC]
 	void RPC_SetHead(GenderType gender, string name)
 	{
-		Customization[(int)gender].SetHead(name);
+		headStyle[(int)Gender] = name;
+		Customization[(int)gender].SetStyle(CharacterCustomization.Style.Head, name);
 	}
 
-	public void SetHead(GenderType gender, string name)
+	[PunRPC]
+	void RPC_SetAccessory(GenderType gender, string name)
 	{
-		if (PV.IsSceneView)
-			RPC_SetHead(gender, name);
-		else
-			PV.RPC("RPC_SetHead", RpcTarget.AllBuffered, gender, name);
+		accessoryStyle[(int)Gender] = name;
+		Customization[(int)gender].SetStyle(CharacterCustomization.Style.Accessory, name);
 	}
 
 	[PunRPC]
@@ -100,23 +146,18 @@ public class PlayerCustomization : MonoBehaviour
 		foreach (Material material in Skins)
 		{
 			if (material.name == name)
+			{
 				Customization[(int)gender].SetSkin(material);
+				skinTone = name;
+			}
 		}
-	}
-
-	public void SetSkin(GenderType gender, string name)
-	{
-		if (PV.IsSceneView)
-			RPC_SetSkin(gender, name);
-		else
-			PV.RPC("RPC_SetSkin", RpcTarget.AllBuffered, gender, name);
 	}
 
 	public void SetOutfit(string name)
 	{
 		foreach (CharacterCustomization cust in Customization)
 		{
-			cust.SetOutfit(name);
+			cust.SetStyle(CharacterCustomization.Style.Body, name);
 		}
 	}
 
@@ -131,19 +172,12 @@ public class PlayerCustomization : MonoBehaviour
 				GetComponent<AimController>().Team = UnityEngine.Random.Range(0, 2);
 
 			Gender = (GenderType)UnityEngine.Random.Range(0, Enum.GetValues(typeof(GenderType)).Length);
-			//Gender = GenderType.Female;
 
 			Material skin = Skins[UnityEngine.Random.Range(0.0f, 1.0f) < SkinProbability ? 0 : 1];
 
-			for (int i = 0; i < Customization.Length; ++i)
-			{
-				CharacterCustomization cust = Customization[i];
-				GenderType gender = (GenderType)i;
-
-				string head = cust.Head[UnityEngine.Random.Range(0, cust.Head.Count)].name;
-				SetHead(gender, head);
-				SetSkin(gender, skin.name);
-			}
+			CharacterCustomization cust = Customization[(int)Gender];
+			HeadStyle = cust.Head[UnityEngine.Random.Range(0, cust.Head.Count)].name;
+			SkinTone = skin.name;
 		}
     }
 

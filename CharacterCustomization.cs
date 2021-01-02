@@ -5,41 +5,67 @@ using UnityEngine;
 
 public class CharacterCustomization : MonoBehaviour
 {
-	[Serializable]
-	public class DressItem
-	{
-		public string Name;
-		public GameObject Model;
-	}
-
-	public List<DressItem> Outfit;
+	public List<GameObject> Body;
 	public List<GameObject> Head;
-	public List<GameObject> Glasses;
+	public List<GameObject> Accessory;
 
-	public void SetOutfit(string name)
+	public enum Style
 	{
-		foreach (DressItem item in Outfit)
-			item.Model.SetActive(item.Name == name || item.Model.name == name);
+		Body,
+		Head,
+		Accessory,
 	}
 
-	public void SetHead(string name)
+
+	List<List<GameObject>> items;
+	List<List<GameObject>> Items
 	{
-		foreach (GameObject head in Head)
-			head.SetActive(head.name == name);
+		get
+		{
+			if (items == null)
+			{
+				items = new List<List<GameObject>>() { Body, Head, Accessory };
+			}
+			return items;
+		}
+	}
+	List<String> selectedStyle;
+	List<String> SelectedStyle
+	{
+		get
+		{
+			if (selectedStyle == null)
+			{
+				selectedStyle = new List<string>() { Body[0].name, Head[0].name, Accessory[0].name };
+			}
+			return selectedStyle;
+		}
 	}
 
-	public void SetGlasses(string name)
+	public List<GameObject> GetItems(Style style)
 	{
-		foreach (GameObject glasses in Glasses)
-			glasses.SetActive(glasses.name == name);
+		return Items[(int)style];
+	}
+
+	private void Awake()
+	{
+		// VS: DON'T PUT ANYTHING HERE - initialization could happen before Awake()
+	}
+
+	public void SetStyle(Style style, string styleName)
+	{
+		SelectedStyle[(int)style] = styleName;
+		Items[(int)style].ForEach(item => item.SetActive(item.name == styleName));
+	}
+
+	public string GetStyle(Style style)
+	{
+		return SelectedStyle[(int)style];
 	}
 
 	public void SetSkin(Material material)
 	{
-		foreach (DressItem dress in Outfit)
-			dress.Model.GetComponent<SkinnedMeshRenderer>().material = material;
-
-		foreach (GameObject head in Head)
-			head.GetComponent<MeshRenderer>().material = material;
+		Items[(int)Style.Body].ForEach(item => item.GetComponent<SkinnedMeshRenderer>().material = material);
+		Items[(int)Style.Head].ForEach(item => item.GetComponent<MeshRenderer>().material = material);
 	}
 }

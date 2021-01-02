@@ -12,6 +12,9 @@ public class SettingsMenuUI : MonoBehaviour
 	public Slider CameraSpeedSlider;
 	public Text CameraSpeedText;
 
+	public Slider FreeCameraSpeedSlider;
+	public Text FreeCameraSpeedText;
+
 	public Slider GraphicsQualitySlider;
 	public Text GraphicsQualityText;
 
@@ -37,6 +40,20 @@ public class SettingsMenuUI : MonoBehaviour
 		{
 			CameraSpeedSlider.value = value;
 			OnCameraSpeedChanged(value);
+		}
+	}
+
+	public float FreeCameraSpeed
+	{
+		get
+		{
+			return FreeCameraSpeedSlider.value;
+		}
+
+		set
+		{
+			FreeCameraSpeedSlider.value = value;
+			OnFreeCameraSpeedChanged(value);
 		}
 	}
 
@@ -97,6 +114,17 @@ public class SettingsMenuUI : MonoBehaviour
 		if (SaveSettings)
 		{
 			PlayerPrefs.SetFloat(CameraSpeedVar, value);
+			PlayerPrefs.Save();
+		}
+	}
+
+	public void OnFreeCameraSpeedChanged(float value)
+	{
+		FreeCameraSpeedText.text = value.ToString("F1");
+
+		if (SaveSettings)
+		{
+			PlayerPrefs.SetFloat(FreeCameraSpeedVar, value);
 			PlayerPrefs.Save();
 		}
 	}
@@ -167,6 +195,7 @@ public class SettingsMenuUI : MonoBehaviour
 
 
 	const string CameraSpeedVar = "CameraSpeed";
+	const string FreeCameraSpeedVar = "FreeCameraSpeed";
 	const string MusicVolumeVar = "MusicVolume";
 	const string EffectsVolumeVar = "EffectsVolume";
 	const string GraphicsQuality = "GraphicsQuality";
@@ -179,6 +208,7 @@ public class SettingsMenuUI : MonoBehaviour
 		SaveSettings = false;
 
 		CameraSpeed = PlayerPrefs.GetFloat(CameraSpeedVar, 1.0f);
+		FreeCameraSpeed = PlayerPrefs.GetFloat(FreeCameraSpeedVar, 1.0f);
 		MusicVolume = PlayerPrefs.GetFloat(MusicVolumeVar, 0.5f);
 		EffectsVolume = PlayerPrefs.GetFloat(EffectsVolumeVar, 0.6f);
 

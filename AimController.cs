@@ -48,7 +48,7 @@ public class AimController : MonoBehaviour
 
 	// Start is called before the first frame update
 	void Awake()
-    {
+	{
 		IsBot = GetComponent<BotController>() != null;
 		PV = GetComponent<PhotonView>();
 		Audio = GetComponent<PlayerAudio>();
@@ -212,7 +212,7 @@ public class AimController : MonoBehaviour
 		SectorSort sorter = new SectorSort() { Origin = transform.position, Direction = forward };
 		targets.Sort(sorter);
 
-		Debug.DrawRay(transform.position, forward, Color.yellow); 
+		Debug.DrawRay(transform.position, forward, Color.yellow);
 
 		return targets[0];
 	}
@@ -356,7 +356,7 @@ public class AimController : MonoBehaviour
 	public float DiscCharge = 0.0f;
 	const float DiscChargeTime = 0.2f;
 	const float DiscStraightThrowTime = DiscChargeTime * 0.5f;
-	
+
 
 
 	float CalcCurrentDiscCharge()
@@ -365,9 +365,9 @@ public class AimController : MonoBehaviour
 	}
 
 	bool IsReleasingDisc()
-	{ 
-		return FrisbeeGame.Instance.CanProcessMouse && 
-			   FrisbeeGame.Instance.CanProcessKeyboard && 
+	{
+		return FrisbeeGame.Instance.CanProcessMouse &&
+			   FrisbeeGame.Instance.CanProcessKeyboard &&
 			   ((Input.GetButtonUp("Disc Charge") && !Input.GetButton("Disc Charge")) || Input.GetButtonDown("Disc Release"));
 	}
 
@@ -388,16 +388,50 @@ public class AimController : MonoBehaviour
 		}
 	}
 
-	const float TARGET_CHANGE_DELAY_SEC = 0.3f;
+	const float TARGET_CHANGE_DELAY_NORMAL_SEC = 0.3f;
+	const float TARGET_CHANGE_DELAY_STICKY_SEC = 1.0f;
 
-	public bool HasDoubleTeam => (OpponentsInRange.Count >= DoubleTeamLimit);
-	public bool HasTrippleTeam => (OpponentsInRange.Count >= TrippleTeamLimit);
+	float TargetChangeDelaySec
+	{
+		get
+		{
+			float charge = CalcCurrentDiscCharge();
+			return Mathf.Abs(charge) > 0.1f ? TARGET_CHANGE_DELAY_STICKY_SEC : TARGET_CHANGE_DELAY_NORMAL_SEC;
+		}
+	}
+
+	const float DOUBLE_TEAM_FADE_OFF_DELAY_SEC = 0.5f;
+	const float DOUBLE_TEAM_FADE_IN_DELAY_SEC = 1.0f;
+
+	float DoubleTeamStartTimestamp = 0.0f;
+	float DoubleTeamFinishTimestamp = 0.0f;
+	public float DoubleTeamValue
+	{
+		get
+		{
+			if ((Time.time - DoubleTeamStartTimestamp) < DOUBLE_TEAM_FADE_IN_DELAY_SEC)
+				return 0.0f;
+
+			return Mathf.Clamp(1.0f - (Time.time - DoubleTeamFinishTimestamp) / DOUBLE_TEAM_FADE_OFF_DELAY_SEC, 0.0f, 1.0f);
+		}
+	}
+
+	public float DoubleTeamWarningValue
+	{
+		get
+		{
+			return HasDoubleTeam ? Mathf.Clamp((Time.time - DoubleTeamStartTimestamp) / DOUBLE_TEAM_FADE_IN_DELAY_SEC, 0.0f, 1.0f) : 0.0f;
+		}
+	}
+
+
+	public bool HasDoubleTeam => (HasDiscInHands && OpponentsInRange.Count >= DoubleTeamLimit);
 
 	Quaternion CurrentMaxArc
 	{
 		get
 		{
-			return HasDoubleTeam ? MaxHammerArc : MaxThrowingArc;
+			return DoubleTeamValue > Mathf.Epsilon ? MaxHammerArc : MaxThrowingArc;
 		}
 	}
 
@@ -405,33 +439,41 @@ public class AimController : MonoBehaviour
 	{
 		get
 		{
-			return HasDoubleTeam ? MinHammerArc : MinThrowingArc;
+			return DoubleTeamValue > Mathf.Epsilon ? MinHammerArc : MinThrowingArc;
 		}
 	}
-
 
 	// Update is called once per frame
 	void Update()
     {
+		if (HasDoubleTeam)
+		{
+			DoubleTeamFinishTimestamp = Time.time;
+		}
+		else
+		{
+			DoubleTeamStartTimestamp = Time.time;
+		}
+
 		if (PV.IsMine && !IsBot)
 		{
-#if UNITY_EDITOR
-			if (Input.GetKeyDown(KeyCode.C) && !HasDiscInHands)
-			{
-				CmdCreateDisc(gameObject.transform.position);
-			}
-#endif
-
 			if (HasDiscInHands)
 			{
 				GameObject target = SelectClosestTarget(transform.forward);
 
-				if ((Time.time - CurrentTargetTimestamp) > TARGET_CHANGE_DELAY_SEC)
+				var screenPos = Camera.main.WorldToScreenPoint(target.transform.position);
+				if (!Screen.safeArea.Contains(screenPos))
 				{
-					if (target == null || !Input.GetButton("HoldAim"))
-						SetTarget(target);
+					SetTarget(null);
 				}
-					
+				else
+				{
+					if ((Time.time - CurrentTargetTimestamp) > TargetChangeDelaySec || CurrentTarget == null)
+					{
+						if (target == null || !Input.GetButton("HoldAim"))
+							SetTarget(target);
+					}
+				}
 			}
 			else
 			{
@@ -440,10 +482,10 @@ public class AimController : MonoBehaviour
 
 			if (HasDiscInHands)
 			{
-				if (Input.GetKeyDown(KeyCode.X))
-				{
-					CmdDropDisc(Disc, true);
-				}
+				//if (Input.GetKeyDown(KeyCode.X))
+				//{
+				//	CmdDropDisc(Disc, true);
+				//}
 
 				if (IsReleasingDisc())
 				{
@@ -552,7 +594,8 @@ public class AimController : MonoBehaviour
 
 			if (thrower != null && thrower.GetComponent<AimController>().Team != Team)
 			{
-				GetComponent<PlayerStats>().AddDefence();
+				GetComponent<PlayerStats>().AddGlobal(PlayerStats.Stat.Defence);
+				thrower.GetComponent<PlayerStats>().AddGlobal(PlayerStats.Stat.Turnover);
 
 				if (announceTransition)
 					FrisbeeGame.Instance.CmdSwitchPossession(Team);
@@ -567,6 +610,7 @@ public class AimController : MonoBehaviour
 		Disc = null;
 		Spacer.IsActive = false;
 		Audio.OnAudioEvent(PlayerAudio.EventType.Throw);
+
 	}
 
 	public void CmdCreateDisc(Vector3 position)
@@ -605,7 +649,7 @@ public class AimController : MonoBehaviour
 		{
 			DiscController controller = disc.GetComponent<DiscController>();
 
-			bool enableTrail = OpponentsInRange.Count >= DoubleTeamLimit;
+			bool enableTrail = DoubleTeamValue > Mathf.Epsilon;
 
 			controller.CmdThrow(from, to, direction, enableTrail);
 		}
@@ -661,19 +705,17 @@ public class AimController : MonoBehaviour
 
 	void OnDrawGizmos()
 	{
-		//Gizmos.color = Color.red;
-		//Gizmos.DrawSphere(this.transform.position, Catcher.radius);
-		if (HasDiscInHands)
-		{
-			List<GameObject> targets = GetPotentialTargets(Team);
-			foreach (GameObject target in targets)
-			{
-				Gizmos.color = IsObstructed(target) ? Color.red : Color.green;
-				Gizmos.DrawSphere(target.transform.position + Vector3.up * 2.0f, 0.5f);
-			}
-		}
+		Gizmos.color = Color.red;
+		Gizmos.DrawSphere(Catcher.transform.position, Catcher.radius);
 
-		//Gizmos.color = Color.red;
-		//Gizmos.DrawSphere(this.transform.position, Catcher.radius);
+		//if (HasDiscInHands)
+		//{
+		//	List<GameObject> targets = GetPotentialTargets(Team);
+		//	foreach (GameObject target in targets)
+		//	{
+		//		Gizmos.color = IsObstructed(target) ? Color.red : Color.green;
+		//		Gizmos.DrawSphere(target.transform.position + Vector3.up * 2.0f, 0.5f);
+		//	}
+		//}
 	}
 }

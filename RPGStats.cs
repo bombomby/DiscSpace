@@ -59,6 +59,7 @@ public class RPGStats : MonoBehaviour
 			stats.DiscSpace *= 1.2f;
 			stats.StaminaRecoverySpeed *= 0.9f;
 			stats.MaxDiscCurve *= 1.15f;
+			stats.CatchRadiusScaler *= 1.15f;
 		},
 		// Cutter
 		(RPGStats.Stats stats) =>
@@ -67,6 +68,7 @@ public class RPGStats : MonoBehaviour
 			stats.MaxDiscCurve *= 0.85f;
 			stats.MoveSpeed *= 1.1f;
 			stats.StaminaRecoverySpeed *= 1.1f;
+			stats.CatchRadiusScaler *= 0.9f;
 		},
 		// Newbie
 		(RPGStats.Stats stats) =>
@@ -74,17 +76,19 @@ public class RPGStats : MonoBehaviour
 			stats.DiscSpace *= 0.9f;
 			stats.MaxDiscCurve *= 0.8f;
 			stats.MoveSpeed *= 0.9f;
-			stats.MaxStamina *= 0.8f;
+			stats.MaxStamina *= 1.0f;
 			stats.StaminaRecoverySpeed *= 2.0f;
+			stats.CatchRadiusScaler *= 0.9f;
 		},
 		// Cannon
 		(RPGStats.Stats stats) =>
 		{
-			stats.DiscSpace *= 1.3f;
-			stats.MaxDiscCurve *= 1.5f;
+			stats.DiscSpace *= 1.4f;
+			stats.MaxDiscCurve *= 1.3f;
 			stats.StaminaRecoverySpeed *= 0.8f;
 			stats.MaxStamina *= 0.8f;
 			stats.MoveSpeed *= 0.9f;
+			stats.CatchRadiusScaler *= 1.15f;
 		},
 		// D-Machine
 		(RPGStats.Stats stats) =>
@@ -93,6 +97,7 @@ public class RPGStats : MonoBehaviour
 			stats.MaxDiscCurve *= 0.5f;
 			stats.MaxStamina *= 1.5f;
 			stats.StaminaRecoverySpeed *= 1.5f;
+			stats.CatchRadiusScaler *= 1.3f;
 		},
 	};
 
@@ -119,8 +124,10 @@ public class RPGStats : MonoBehaviour
 			MoveSpeedBurstMultiplier = 1.4f;
 			LayoutSpeedMultiplier = 1.4f;
 
-			DiscSpace = 1.6f;
+			DiscSpace = 1.8f;
 			MaxDiscCurve = 0.86f;
+
+			CatchRadiusScaler = 1.0f;
 		}
 
 		public void ZeroStamina()
@@ -141,6 +148,8 @@ public class RPGStats : MonoBehaviour
 
 		public float DiscSpace;
 		public float MaxDiscCurve;
+
+		public float CatchRadiusScaler;
 
 		public float BurstMode = 0.0f;
 
@@ -187,52 +196,52 @@ public class RPGStats : MonoBehaviour
 			Stamina = Mathf.Max(0.0f, Stamina - StaminaLayoutDrain);
 		}
 
-		const short SerializationSize = 8 * 4;
+		//const short SerializationSize = 8 * 4;
 
-		private static short SerializeStats(StreamBuffer outStream, object obj)
-		{
-			Stats stats = (Stats)obj;
+		//private static short SerializeStats(StreamBuffer outStream, object obj)
+		//{
+		//	Stats stats = (Stats)obj;
 
-			byte[] mem = new byte[SerializationSize];
+		//	byte[] mem = new byte[SerializationSize];
 
-			int index = 0;
-			Protocol.Serialize(stats.Health, mem, ref index);
-			Protocol.Serialize(stats.MaxHealth, mem, ref index);
-			Protocol.Serialize(stats.Stamina, mem, ref index);
-			Protocol.Serialize(stats.MaxStamina, mem, ref index);
-			Protocol.Serialize(stats.StaminaRecoverySpeed, mem, ref index);
+		//	int index = 0;
+		//	Protocol.Serialize(stats.Health, mem, ref index);
+		//	Protocol.Serialize(stats.MaxHealth, mem, ref index);
+		//	Protocol.Serialize(stats.Stamina, mem, ref index);
+		//	Protocol.Serialize(stats.MaxStamina, mem, ref index);
+		//	Protocol.Serialize(stats.StaminaRecoverySpeed, mem, ref index);
 
-			Protocol.Serialize(stats.MoveSpeed, mem, ref index);
+		//	Protocol.Serialize(stats.MoveSpeed, mem, ref index);
 
-			Protocol.Serialize(stats.DiscSpace, mem, ref index);
-			Protocol.Serialize(stats.MaxDiscCurve, mem, ref index);
+		//	Protocol.Serialize(stats.DiscSpace, mem, ref index);
+		//	Protocol.Serialize(stats.MaxDiscCurve, mem, ref index);
 
-			outStream.Write(mem, 0, mem.Length);
+		//	outStream.Write(mem, 0, mem.Length);
 
-			return (short)mem.Length;
-		}
+		//	return (short)mem.Length;
+		//}
 
-		private static object DeserializeStats(StreamBuffer inStream, short length)
-		{
-			Stats stats = new Stats();
-			byte[] mem = new byte[SerializationSize];
+		//private static object DeserializeStats(StreamBuffer inStream, short length)
+		//{
+		//	Stats stats = new Stats();
+		//	byte[] mem = new byte[SerializationSize];
 
-			inStream.Read(mem, 0, mem.Length);
+		//	inStream.Read(mem, 0, mem.Length);
 
-			int index = 0;
-			Protocol.Deserialize(out stats.Health, mem, ref index);
-			Protocol.Deserialize(out stats.MaxHealth, mem, ref index);
-			Protocol.Deserialize(out stats.Stamina, mem, ref index);
-			Protocol.Deserialize(out stats.MaxStamina, mem, ref index);
-			Protocol.Deserialize(out stats.StaminaRecoverySpeed, mem, ref index);
+		//	int index = 0;
+		//	Protocol.Deserialize(out stats.Health, mem, ref index);
+		//	Protocol.Deserialize(out stats.MaxHealth, mem, ref index);
+		//	Protocol.Deserialize(out stats.Stamina, mem, ref index);
+		//	Protocol.Deserialize(out stats.MaxStamina, mem, ref index);
+		//	Protocol.Deserialize(out stats.StaminaRecoverySpeed, mem, ref index);
 
-			Protocol.Deserialize(out stats.MoveSpeed, mem, ref index);
+		//	Protocol.Deserialize(out stats.MoveSpeed, mem, ref index);
 
-			Protocol.Deserialize(out stats.DiscSpace, mem, ref index);
-			Protocol.Deserialize(out stats.MaxDiscCurve, mem, ref index);
+		//	Protocol.Deserialize(out stats.DiscSpace, mem, ref index);
+		//	Protocol.Deserialize(out stats.MaxDiscCurve, mem, ref index);
 
-			return stats;
-		}
+		//	return stats;
+		//}
 
 
 		public Stats()
@@ -240,10 +249,10 @@ public class RPGStats : MonoBehaviour
 			Reset();
 		}
 
-		static Stats()
-		{
-			PhotonPeer.RegisterType(typeof(Stats), (byte)'W', SerializeStats, DeserializeStats);
-		}
+		//static Stats()
+		//{
+		//	PhotonPeer.RegisterType(typeof(Stats), (byte)'W', SerializeStats, DeserializeStats);
+		//}
 	}
 
 

@@ -1,4 +1,5 @@
 ﻿using Photon.Pun;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,53 +8,62 @@ public class PlayerStats : MonoBehaviour
 {
 	PhotonView PV;
 
-	private int score = 0;
-	public int Score
+	public int GetCount(Stat stat)
 	{
-		get { return score; }
-		set { score = value; PV.RPC("RPC_Score", RpcTarget.All, value); }
+		return (int)Mathf.Round(Values[(int)stat]);
 	}
 
-	private int defence = 0;
-	public int Defence
+	public float GetValue(Stat stat)
 	{
-		get { return defence; }
-		set { defence = value; PV.RPC("RPC_Defence", RpcTarget.All, value); }
+		return Values[(int)stat];
 	}
 
-	private int assist = 0;
-	public int Assist
-	{
-		get { return assist; }
-		set { assist = value; PV.RPC("RPC_Assist", RpcTarget.All, value); }
+	[PunRPC]
+	void RPC_AddGlobal(Stat stat, float value) {
+		AddLocal(stat, value);
 	}
 
-
-	[PunRPC] void RPC_Score(int value) { score = value; }
-	[PunRPC] void RPC_Assist(int value) { assist = value; }
-	[PunRPC] void RPC_Defence(int value) { defence = value; }
-
-
-	public void AddScore()
+	public enum Stat
 	{
-		Score = Score + 1;
+		Assist,
+		Goal,
+		Defence,
+
+		Throw,
+		Turnover,
+		Hammer,
+
+		Layouts,
+		Barrel,
+		Emoji,
+
+		MoveDistance,
 	}
 
-	public void AddAssist()
+	List<float> Values;
+
+	public void AddLocal(Stat stat, float value = 1.0f)
 	{
-		Assist = Assist + 1;
+		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game))
+		{
+			int index = (int)stat;
+			if (index < Values.Count)
+				Values[index] = Values[index] + value;
+		}
 	}
 
-	public void AddDefence()
+	public void AddGlobal(Stat stat, float value = 1.0f)
 	{
-		Defence = Defence + 1;
+		if (FrisbeeGame.IsInState(FrisbeeGame.GameState.Game))
+		{
+			PV.RPC("RPC_AddGlobal", RpcTarget.All, stat, value);
+		}
 	}
 
 	public void Reset()
 	{
-		score = 0;
-		assist = 0;
-		defence = 0;
+		for (int i = 0; i < Values.Count; ++i)
+			Values[i] = 0.0f;
 	}
 
 	private void OnGameStarted()
@@ -64,6 +74,13 @@ public class PlayerStats : MonoBehaviour
 	private void Awake()
 	{
 		PV = GetComponent<PhotonView>();
+
+		int numValues = Enum.GetValues(typeof(Stat)).Length;
+		Values = new List<float>(numValues);
+		for (int i = 0; i < numValues; ++i)
+		{
+			Values.Add(0.0f);
+		}
 	}
 
 	public void Start()
@@ -74,5 +91,10 @@ public class PlayerStats : MonoBehaviour
 	private void OnDestroy()
 	{
 		FrisbeeGame.Instance.GameStarted -= OnGameStarted;
+	}
+
+	public int CalcExpReward()
+	{
+		return GetCount(Stat.Assist) + GetCount(Stat.Goal) + GetCount(Stat.Defence);
 	}
 }

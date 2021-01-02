@@ -18,6 +18,8 @@ public class Interactive : MonoBehaviour
 	public String Text;
 	public FrisbeeGame.GameState States = FrisbeeGame.GameState.Any;
 
+	public bool MasterClientOnly = false;
+
 	private bool IsTriggered = false;
 
 	bool IsActivated
@@ -53,9 +55,14 @@ public class Interactive : MonoBehaviour
 		return false;
 	}
 
+	bool CanTrigger(GameObject obj)
+	{
+		return IsPlayer(obj) && (!MasterClientOnly || PhotonNetwork.IsMasterClient);
+	}
+
 	private void OnTriggerEnter(Collider other)
 	{
-		if (IsPlayer(other.gameObject))
+		if (CanTrigger(other.gameObject))
 		{
 			IsTriggered = true;
 			InteractionMenu.Instance.AddInteraction(this);
@@ -64,7 +71,7 @@ public class Interactive : MonoBehaviour
 
 	private void OnTriggerExit(Collider other)
 	{
-		if (IsPlayer(other.gameObject))
+		if (CanTrigger(other.gameObject))
 		{
 			InteractionMenu.Instance.RemoveInteraction(this);
 			IsTriggered = false;

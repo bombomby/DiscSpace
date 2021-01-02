@@ -17,6 +17,7 @@ public class GameFinishedUI : MonoBehaviour
 	public Text Score;
 	public Text Assist;
 	public Text Defence;
+	public Text Experience;
 	public Text GameTime;
 
 	public void OnShow()
@@ -44,9 +45,10 @@ public class GameFinishedUI : MonoBehaviour
 
 				PlayerStats stats = player.GetComponent<PlayerStats>();
 
-				Score.text = string.Format("{0} Goal{1}", stats.Score, stats.Score == 1 ? string.Empty : "s");
-				Assist.text = string.Format("{0} Assist{1}", stats.Assist, stats.Assist == 1 ? string.Empty : "s");
-				Defence.text = string.Format("{0} D's", stats.Defence);
+				Score.text = string.Format("{0} Goal{1}", stats.GetCount(PlayerStats.Stat.Goal), stats.GetCount(PlayerStats.Stat.Goal) == 1 ? string.Empty : "s");
+				Assist.text = string.Format("{0} Assist{1}", stats.GetCount(PlayerStats.Stat.Assist), stats.GetCount(PlayerStats.Stat.Assist) == 1 ? string.Empty : "s");
+				Defence.text = string.Format("{0} D's", stats.GetCount(PlayerStats.Stat.Defence));
+				Experience.text = string.Format("+{0} Exp", stats.CalcExpReward());
 
 				TimeSpan gameDuration = DateTime.Now - game.GameStartedTimestamp;
 				GameTime.text = gameDuration.ToString(@"mm\:ss");

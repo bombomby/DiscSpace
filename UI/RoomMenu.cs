@@ -186,6 +186,8 @@ public class RoomMenu : MonoBehaviourPunCallbacks
 		string link = ZoomLinkInputText.text;
 		string password = RoomPinToggle.isOn ? UnityEngine.Random.Range(1000, 9999).ToString() : null;
 		byte maxPlayers = (byte)(playerLimit > 5 ? 16 : playerLimit * 2);
+		if (RoomPinToggle.isOn)
+			maxPlayers = 16;
 		CreateRoom(name, maxPlayers, link, password);
 	}
 

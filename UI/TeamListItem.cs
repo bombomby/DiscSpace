@@ -9,6 +9,7 @@ public class TeamListItem : MonoBehaviour
 {
 	public GameObject Player;
 	public GameObject MasterPanel;
+	public Text Level;
 	public Text Name;
 	public Image SpecializationIcon;
 
@@ -23,9 +24,16 @@ public class TeamListItem : MonoBehaviour
     {
 		MasterPanel.SetActive(PhotonNetwork.IsMasterClient && Player != null && Player.GetComponent<BotController>() == null && !Player.GetComponent<PhotonView>().IsMine);
 
-		RPGStats.Specialization specialization = Player.GetComponent<RPGStats>().CurrentSpecialization;
-		Name.text = Player.GetComponent<PlayerTag>().Name;
-		SpecializationIcon.sprite = TeamMenuUI.Instance.SpecializationIcons[(int)specialization];
+		if (Player != null)
+		{
+			RPGStats.Specialization specialization = Player.GetComponent<RPGStats>().CurrentSpecialization;
+			Name.text = Player.GetComponent<PlayerTag>().Name;
+
+			DBStats dbStats = Player.GetComponent<DBStats>();
+			Level.text = dbStats.Level.ToString();
+
+			SpecializationIcon.sprite = TeamMenuUI.Instance.SpecializationIcons[(int)specialization];
+		}
 	}
 
 	public void Kick()

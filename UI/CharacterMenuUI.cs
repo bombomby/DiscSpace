@@ -28,6 +28,9 @@ public class CharacterMenuUI : MonoBehaviour
 	public Text RecoveryStatText;
 	public Text DiscSpaceStatText;
 	public Text MaxDiscCurveStatText;
+	public Text CatchingStatText;
+
+	public Text LevelText;
 
 	Color BetterStatColor = Color.green;
 	Color DefaultStatColor = new Color(0.827f, 0.675f, 0.494f, 1.0f);
@@ -86,6 +89,7 @@ public class CharacterMenuUI : MonoBehaviour
 				UpdateStat(StaminaStatText, stats.MaxStamina / DefaultStats.MaxStamina);
 				UpdateStat(SpeedStatText, stats.MoveSpeed / DefaultStats.MoveSpeed);
 				UpdateStat(RecoveryStatText, stats.StaminaRecoverySpeed / DefaultStats.StaminaRecoverySpeed);
+				UpdateStat(CatchingStatText, stats.CatchRadiusScaler / DefaultStats.CatchRadiusScaler);
 				UpdateStat(DiscSpaceStatText, stats.DiscSpace / DefaultStats.DiscSpace);
 				UpdateStat(MaxDiscCurveStatText, stats.MaxDiscCurve / DefaultStats.MaxDiscCurve);
 
@@ -108,6 +112,8 @@ public class CharacterMenuUI : MonoBehaviour
 			{
 				GameObject iconCamera = player.transform.Find("IconCamera").gameObject;
 				iconCamera.SetActive(Window.IsOpen);
+
+				LevelText.text = player.GetComponent<DBStats>().Level.ToString();
 			}
 
 			if (Window.IsFocused && Input.GetButtonDown("Select Tab"))

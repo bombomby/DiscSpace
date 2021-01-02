@@ -7,10 +7,6 @@ using UnityEngine.UI;
 using System.Net;
 using UnityEngine.Networking;
 
-#if UNITY_STANDALONE
-using Steamworks;
-#endif
-
 public class LoginMenuUI : MonoBehaviour
 {
 	public bool DevAutoLogin;
@@ -30,14 +26,7 @@ public class LoginMenuUI : MonoBehaviour
 		}
 #endif
 
-#if UNITY_STANDALONE
-		if (SteamManager.Initialized)
-		{
-			string name = SteamFriends.GetPersonaName();
-			InputName.text = name;
-			Debug.Log(name);
-		}
-#endif
+		InputName.text = GameFeatures.AccountName;
 
 		/// VS: UnityWebRequest breask WebGL version!!!
 		//using (UnityWebRequest request = UnityWebRequest.Get(@"https://raw.githubusercontent.com/bombomby/discspace-public/master/announcements.txt"))

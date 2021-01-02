@@ -42,6 +42,10 @@ public class TeamMenuUI : MonoBehaviour
 			index = (index + change + team.AvailableOutfits.Count) % team.AvailableOutfits.Count;
 			team.TeamOutfit = team.AvailableOutfits[index];
 		}
+		else
+		{
+			team.TeamOutfit = team.AvailableOutfits[0];
+		}
 	}
 
 	public void NextTeamOutfit(int teamIndex)

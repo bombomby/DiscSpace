@@ -97,6 +97,25 @@ public class MenuManager : MonoBehaviour
 	const float MenuReopenDelay = 0.5f;
 
 	// Update is called once per frame
+
+	void CheckEmojiMenu(UIWindowID windowID, string buttonName, string axisName)
+	{
+		// VS TODO: New Input System
+		//if (/*(GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.OpenEmoji.triggered :*/ Input.GetButtonDown("Emoji Menu")))
+		if ((buttonName != null && Input.GetButtonDown(buttonName)) || (axisName != null && Math.Abs(Input.GetAxis(axisName)) > 0.5f))
+		{
+			if (!HasOpenWindow(UIWindow.Interaction.Mouse))
+			{
+				UIWindow.GetWindow(windowID).Show();
+			}
+		}
+
+		if ((buttonName != null && Input.GetButtonUp(buttonName)) || (axisName != null && Math.Abs(Input.GetAxis(axisName)) < 0.5f))
+		{
+			UIWindow.GetWindow(windowID).GetComponent<EmojiMenuUI>().Close();
+		}
+	}
+
 	void LateUpdate()
 	{
 		if (HasOpenWindow(UIWindow.Interaction.Mouse))
@@ -131,19 +150,9 @@ public class MenuManager : MonoBehaviour
 			LastOpened = DateTime.Now;
 		}
 
-		UIWindow emojiWindow = UIWindow.GetWindow(UIWindowID.EmojiMenu);
-		if ((GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.OpenEmoji.triggered : Input.GetButtonDown("Emoji Menu")))
-		{
-			if (!HasOpenWindow(UIWindow.Interaction.Mouse))
-			{
-				emojiWindow.Show();
-			}
-		}
-
-		if ((GameSettings.UseNewInputSystem ? GameSettings.Controls.UI.OpenEmoji.triggered : Input.GetButtonUp("Emoji Menu")))
-		{
-			emojiWindow.GetComponent<EmojiMenuUI>().Close();
-		}
+		CheckEmojiMenu(UIWindowID.EmojiMenu0, "Emoji Menu 0", null);
+		CheckEmojiMenu(UIWindowID.EmojiMenu1, "Emoji Menu 1", /*"DPad Y"*/ null);
+		//CheckEmojiMenu(UIWindowID.EmojiMenu1, "Emoji Menu 2", "DPad X");
 
 		// VS TODO: UpdateNavigation
 		if (!GameSettings.UseNewInputSystem)

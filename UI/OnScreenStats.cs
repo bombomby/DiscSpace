@@ -11,7 +11,7 @@ public class OnScreenStats : MonoBehaviour
 	private int m_FpsAccumulator = 0;
 	private float m_FpsNextPeriod = 0;
 	private int m_CurrentFps;
-	const string display = "v{0}[{1}] | Ping: {2}ms | FPS: {3}";
+	const string display = "v{0}[{1}] | Ping: {2}ms | FPS: {3}\n{4}";
 	private Text m_Text;
 
 	private void Start()
@@ -30,7 +30,13 @@ public class OnScreenStats : MonoBehaviour
 			m_CurrentFps = (int)(m_FpsAccumulator / fpsMeasurePeriod);
 			m_FpsAccumulator = 0;
 			m_FpsNextPeriod += fpsMeasurePeriod;
-			m_Text.text = string.Format(display, NetworkLobby.GameVersion, NetworkLobby.NetworkVersion, PhotonNetwork.NetworkingClient.LoadBalancingPeer.RoundTripTime, m_CurrentFps);
+
+			string debugString = "";
+#if UNITY_EDITOR
+			debugString = string.Format("Interpolation: {0}", FrisbeeGame.Instance.NetworkInterpolation.ToString());
+#endif
+
+			m_Text.text = string.Format(display, NetworkLobby.GameVersion, NetworkLobby.NetworkVersion, PhotonNetwork.NetworkingClient.LoadBalancingPeer.RoundTripTime, m_CurrentFps, debugString);
 		}
 	}
 }
